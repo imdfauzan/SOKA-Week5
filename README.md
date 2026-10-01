@@ -1,11 +1,11 @@
-# Simulasi Penjadwalan Cloud Task Menggunakan Algoritma Heuristik Sufferage
+# Simulasi Cloud Task Scheduling Menggunakan Algoritma Heuristik Sufferage
 
 [![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://www.oracle.com/java/)
 [![Maven](https://img.shields.io/badge/Maven-3.9%2B-blue.svg)](https://maven.apache.org/)
 [![CloudSim Plus](https://img.shields.io/badge/CloudSim%20Plus-8.5.4-green.svg)](https://cloudsimplus.org/)
 [![License](https://img.shields.io/badge/License-Academic%20Use%20Only-lightgrey.svg)](#)
 
-Implementasi simulasi optimasi task scheduling pada infrastruktur komputasi awan heterogen (*multi-datacenter*) menggunakan **Algoritma Heuristik Sufferage** berbasis **CloudSim Plus**.
+Implementasi optimasi task scheduling pada infrastruktur cloud computing (*multi-datacenter*) menggunakan **Algoritma Heuristik Sufferage** berbasis **CloudSim Plus**.
 
 ---
 
@@ -41,35 +41,36 @@ Simulasi ini mengukur efektivitas penjadwalan berdasarkan 5 metrik utama:
 Total waktu yang dibutuhkan untuk menyelesaikan seluruh cloudlet dalam simulasi.
 Semakin kecil nilai makespan, semakin baik kinerjanya.
 $$\text{Makespan} = \max_{j \in \text{Cloudlets}} (FT_j)$$
-*Di mana $FT_j$ adalah waktu selesai (finish time) dari cloudlet $j$.*
+Di mana *FTj* adalah waktu selesai (*finish time*) dari cloudlet $j$.
 
 ### 2. Degree of Imbalance (DI)
 Tingkat ketidakseimbangan load kerja antar VM. Semakin kecil nilai DI, semakin merata distribusi beban kerja antar VM.
 $$DI = \frac{T_{max} - T_{min}}{T_{avg}}$$
-*Di mana $T_{max}$, $T_{min}$, dan $T_{avg}$ berturut-turut adalah beban waktu eksekusi VM maksimum, minimum, dan rata-rata.*
+Di mana *Tmax*, *Tmin*, dan *Tavg* berturut-turut adalah beban waktu eksekusi VM maksimum, minimum, dan rata-rata.
 
 ### 3. Resource Utilization (RU)
 Persentase rata-rata pemanfaatan kemampuan komputasi VM.
 Semakin tinggi nilai RU, semakin baik pemanfaatan sumber daya.
 $$RU = \frac{\sum_{i=1}^{m} \text{Beban}_i}{m \times \text{Makespan}} \times 100\%$$
-*Di mana $m$ adalah jumlah VM aktif.*
+Di mana *m* adalah jumlah VM aktif.
 
 ### 4. Throughput
 Jumlah tugas yang berhasil diselesaikan per detik.
 Semakin tinggi nilai throughput, semakin baik kinerja algoritma penjadwalan.
 $$\text{Throughput} = \frac{N}{\text{Makespan}}$$
-*Di mana $N$ adalah total cloudlet yang diselesaikan.*
+Di mana *N* adalah total cloudlet yang diselesaikan.
 
 ### 5. Average Response Time
 Rata-rata waktu yang dibutuhkan untuk menyelesaikan tugas sejak submission hingga selesai.
 Semakin kecil nilai ART, semakin baik kinerja algoritma penjadwalan.
 $$\text{ART} = \frac{1}{N} \sum_{j=1}^{N} (FT_j - ST_j)$$
+Di mana *STj* adalah waktu mulai (*start time*) dari cloudlet $j$.
 
 ---
 
 ## 🏗️ Arsitektur Simulasi
 
-Skenario simulasi merepresentasikan lingkungan *multi-cloud datacenter*:
+Simulasi merepresentasikan lingkungan *multi-cloud datacenter*:
 
 ```mermaid
 graph TD
@@ -155,7 +156,7 @@ flowchart TD
 ```text
 .
 ├── pom.xml                               # Konfigurasi dependensi Maven & Shade plugin
-├── README.md                             # Dokumentasi proyek
+├── README.md
 ├── src
 │   └── main
 │       ├── java
@@ -175,7 +176,7 @@ flowchart TD
 
 ## 🚀 Cara Menjalankan Simulasi
 
-- **Java Development Kit (JDK)**: Versi 17 atau lebih baru (`java -version`).
+- **Java Development Kit (JDK)**: Versi 21+ (`java -version`).
 - **Apache Maven**: Versi 3.8+ (`mvn -version`) atau gunakan Maven Wrapper (`mvnw`).
 
 ### Run via Terminal / CLI
@@ -217,10 +218,10 @@ Jumlah VM aktif dipakai: 20
 
 ---
 
-## 🔮 Rencana Pengembangan Selanjutnya (Roadmap)
+## 🔮 Roadmap Pengembangan Selanjutnya
 
-- [v] **Implementasi Baseline Scheduler**: *Round Robin* ([RoundRobinScheduler.java](file:///src/main/java/soka/scheduler/RoundRobinScheduler.java)).
-- [v] **Implementasi Heuristic Scheduler**: *Sufferage (LBMM Foundation)* ([SufferageScheduler.java](file:///src/main/java/soka/scheduler/SufferageScheduler.java)).
+- [x] **Implementasi Baseline Scheduler**: *Round Robin* ([RoundRobinScheduler.java](file:///src/main/java/soka/scheduler/RoundRobinScheduler.java)).
+- [x] **Implementasi Heuristic Scheduler**: *Sufferage (LBMM Foundation)* ([SufferageScheduler.java](file:///src/main/java/soka/scheduler/SufferageScheduler.java)).
 - [ ] **Implementasi Metaheuristik Bio-Inspired**:
   - **Cat Swarm Optimization (CSO)**
   - **Coati Optimization Algorithm (COA)**
@@ -230,7 +231,7 @@ Jumlah VM aktif dipakai: 20
 
 ---
 
-## 📚 Referensi Akademik
+## 📚 Referensi
 
 1. **CloudSim Plus Framework**:  
    Silva Filho, M. C., Oliveira, R. L., Monteiro, C. C., Inácio, P. R., & Freire, M. M. (2017). *CloudSim Plus: a modern Java 8 framework for modeling and simulation of cloud computing infrastructures*. Software: Practice and Experience, 47(9), 1309-1345.
