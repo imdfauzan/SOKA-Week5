@@ -1,5 +1,6 @@
 package soka;
 
+import org.cloudsimplus.allocationpolicies.VmAllocationPolicySimple;
 import org.cloudsimplus.brokers.DatacenterBroker;
 import org.cloudsimplus.brokers.DatacenterBrokerSimple;
 import org.cloudsimplus.cloudlets.Cloudlet;
@@ -13,155 +14,152 @@ import org.cloudsimplus.resources.Pe;
 import org.cloudsimplus.resources.PeSimple;
 import org.cloudsimplus.schedulers.cloudlet.CloudletSchedulerSpaceShared;
 import org.cloudsimplus.schedulers.vm.VmSchedulerTimeShared;
-import org.cloudsimplus.utilizationmodels.UtilizationModelFull;
 import org.cloudsimplus.utilizationmodels.UtilizationModelDynamic;
+import org.cloudsimplus.utilizationmodels.UtilizationModelFull;
 import org.cloudsimplus.vms.Vm;
 import org.cloudsimplus.vms.VmSimple;
 import soka.scheduler.RoundRobinScheduler;
 import soka.scheduler.SufferageScheduler;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.BiFunction;
 
-/**
- * SOKA Kelompok 7 - Simulasi PANCASILA
- * Sesuai Desain Project (slide bagian B):
- *   - 2 Datacenter
- *   - 5 Host per Datacenter (total 10 Host), heterogen 3 tipe: A (rendah), B (sedang), C (tinggi)
- *   - 20 VM (10 per Datacenter), heterogen mengikuti tipe host
- *   - Cloudlet dari dataset GoCJ (500-1000 task)
- *   - Objektif: minimize Makespan & minimize Degree of Imbalance (DI)
- *
- * Cara jalankan:
- *   mvn clean package
- *   java -jar target/soka-simulasi.jar
- */
+/** Runner sederhana: Sufferage sebagai algoritma utama dan Round Robin sebagai baseline. */
 public class Kelompok7Simulation {
-
-    private static final int JUMLAH_CLOUDLET = 500; // sesuai slide: 500-1000
+    private record Algoritma(String nama, BiFunction<List<Cloudlet>, List<Vm>, Map<Cloudlet, Vm>> scheduler) { }
 
     public static void main(String[] args) {
-        CloudSimPlus simulation = new CloudSimPlus();
-
-        // ===================== 1. DATACENTER & HOST (arsitektur B2) =====================
-        DatacenterBroker broker = new DatacenterBrokerSimple(simulation);
-
-        Datacenter dc1 = buatDatacenter(simulation, "DC1", 5);
-        Datacenter dc2 = buatDatacenter(simulation, "DC2", 5);
-        System.out.println("Datacenter dibuat: " + dc1.getName() + " & " + dc2.getName()
-                + " (masing-masing 5 Host, total 10 Host heterogen)");
-
-        // ===================== 2. VIRTUAL MACHINE (10 per Datacenter = 20 total) =====================
-        List<Vm> vmList = new ArrayList<>();
-        vmList.addAll(buatVmHeterogen(10)); // untuk DC1
-        vmList.addAll(buatVmHeterogen(10)); // untuk DC2
-        broker.submitVmList(vmList);
-        System.out.println("Total VM dibuat: " + vmList.size());
-
-        // ===================== 3. CLOUDLET dari dataset GoCJ =====================
-        List<Long> panjangTask = GoCJLoader.generateSyntheticGoCJLike(JUMLAH_CLOUDLET, 42);
-        // Ganti baris di atas dengan ini kalau sudah punya file dataset asli:
-        // List<Long> panjangTask = GoCJLoader.loadFromFile("src/main/resources/GoCJ_Dataset_500.txt");
-
-        List<Cloudlet> cloudletList = new ArrayList<>();
-        for (long length : panjangTask) {
-            Cloudlet cloudlet = new CloudletSimple(length, 1); // 1 PE per cloudlet
-            // CPU memakai penuh, tetapi setiap task hanya memakai 10% RAM dan
-            // bandwidth VM. setUtilizationModel(...) tidak dipakai karena ia
-            // juga mengatur RAM/BW menjadi 100% dan membuat task lain tertahan.
-            cloudlet.setUtilizationModelCpu(new UtilizationModelFull());
-            cloudlet.setUtilizationModelRam(new UtilizationModelDynamic(0.10));
-            cloudlet.setUtilizationModelBw(new UtilizationModelDynamic(0.10));
-            cloudletList.add(cloudlet);
+        List<Algoritma> algoritma = List.of(
+                new Algoritma("Sufferage (LBMM)", SufferageScheduler::schedule),
+                new Algoritma("Round Robin (baseline)", RoundRobinScheduler::schedule)
+        );
+        for (String dataset : List.of("GoCJ_Dataset_500.txt", "GoCJ_Dataset_1000.txt")) {
+            System.out.println("\n================ DATASET: " + dataset + " ================");
+            for (Algoritma a : algoritma) jalankan(a, dataset);
         }
-        System.out.println("Total Cloudlet (task) dari GoCJ: " + cloudletList.size());
-
-        // ===================== 4. JALANKAN ALGORITMA: SUFFERAGE / LBMM =====================
-        Map<Cloudlet, Vm> pemetaanSufferage = SufferageScheduler.schedule(cloudletList, vmList);
-        for (Map.Entry<Cloudlet, Vm> entry : pemetaanSufferage.entrySet()) {
-            broker.bindCloudletToVm(entry.getKey(), entry.getValue());
-        }
-        broker.submitCloudletList(cloudletList);
-
-        System.out.println("\n>>> Menjalankan simulasi dengan algoritma Sufferage (LBMM)...\n");
-        simulation.start();
-
-        List<Cloudlet> selesai = broker.getCloudletFinishedList();
-        System.out.printf("Cloudlet selesai: %d dari %d%n", selesai.size(), cloudletList.size());
-        MetricsCalculator.cetakRingkasan("Sufferage Heuristic (LBMM)", selesai);
-
-        // Catatan: untuk membandingkan dengan Round Robin, CSO, COA, atau Hybrid,
-        // jalankan simulasi terpisah (buat CloudSimPlus baru) dengan mengganti baris
-        // SufferageScheduler.schedule(...) menjadi RoundRobinScheduler.schedule(...)
-        // atau kelas scheduler lain yang kamu buat dengan pola yang sama.
     }
 
-    /** Membuat 1 Datacenter berisi sejumlah Host heterogen (tipe A, B, C bergantian). */
+    private static void jalankan(Algoritma algoritma, String namaDataset) {
+        CloudSimPlus simulation = new CloudSimPlus();
+        DatacenterBroker broker = new DatacenterBrokerSimple(simulation);
+        Datacenter dc1 = buatDatacenter(simulation, "DC1", 5);
+        Datacenter dc2 = buatDatacenter(simulation, "DC2", 5);
+        // VM 0-9 langsung diarahkan ke DC1 dan VM 10-19 ke DC2.
+        // Dengan begitu broker tidak perlu mencoba VM 10-19 ke DC1 terlebih dahulu.
+        broker.setDatacenterMapper((defaultDc, vm) -> vm.getId() < 10 ? dc1 : dc2);
+
+        List<Vm> vmList = new ArrayList<>();
+        vmList.addAll(buatVmHeterogen(10));
+        vmList.addAll(buatVmHeterogen(10));
+        broker.submitVmList(vmList);
+
+        List<Cloudlet> cloudletList = buatCloudlet(namaDataset);
+        Map<Cloudlet, Vm> penjadwalan = algoritma.scheduler().apply(cloudletList, vmList);
+        if (penjadwalan.size() != cloudletList.size()) {
+            throw new IllegalStateException("Scheduler hanya menghasilkan " + penjadwalan.size()
+                    + " assignment untuk " + cloudletList.size() + " cloudlet");
+        }
+        cetakDistribusi(namaDataset, algoritma.nama(), penjadwalan, vmList);
+        penjadwalan.forEach(broker::bindCloudletToVm);
+        broker.submitCloudletList(cloudletList);
+
+        System.out.println("\n>>> Menjalankan " + algoritma.nama());
+        simulation.start();
+        List<Cloudlet> selesai = broker.getCloudletFinishedList();
+        System.out.printf("Cloudlet selesai: %d dari %d%n", selesai.size(), cloudletList.size());
+        MetricsCalculator.cetakRingkasan(algoritma.nama(), selesai, vmList);
+    }
+
+    private static void cetakDistribusi(String namaDataset, String namaAlgoritma,
+                                        Map<Cloudlet, Vm> penjadwalan, List<Vm> vmList) {
+        Map<Vm, Integer> jumlahPerVm = new LinkedHashMap<>();
+        Map<Vm, Long> miPerVm = new LinkedHashMap<>();
+        vmList.forEach(vm -> {
+            jumlahPerVm.put(vm, 0);
+            miPerVm.put(vm, 0L);
+        });
+        penjadwalan.forEach((cloudlet, vm) -> {
+            jumlahPerVm.merge(vm, 1, Integer::sum);
+            miPerVm.merge(vm, cloudlet.getLength(), Long::sum);
+        });
+
+        System.out.printf("Assignment %s [%s]:%n", namaAlgoritma, namaDataset);
+        for (int i = 0; i < vmList.size(); i++) {
+            Vm vm = vmList.get(i);
+            System.out.printf("  VM-%02d (%.0f MIPS, %d PE): %d task, %,d MI%n",
+                    i, vm.getMips(), vm.getPesNumber(), jumlahPerVm.get(vm), miPerVm.get(vm));
+        }
+    }
+
+    private static List<Cloudlet> buatCloudlet(String namaDataset) {
+        List<Cloudlet> daftar = new ArrayList<>();
+        try {
+            List<Long> lengths = GoCJLoader.loadFromResource("Dataset_GoCJ/" + namaDataset);
+            int expected = namaDataset.contains("500") ? 500 : namaDataset.contains("1000") ? 1000 : -1;
+            if (expected > 0 && lengths.size() != expected) {
+                throw new IllegalArgumentException("Jumlah task tidak sesuai: " + lengths.size()
+                        + ", seharusnya " + expected);
+            }
+            for (int i = 0; i < lengths.size(); i++) {
+                long length = lengths.get(i);
+                // ID wajib unik. Tanpa ID unik, HashMap hasil scheduler dapat
+                // menganggap beberapa cloudlet sebagai key yang sama sehingga
+                // hanya sebagian task yang benar-benar dibind ke scheduler.
+                Cloudlet cloudlet = new CloudletSimple(i, length, 1);
+                cloudlet.setUtilizationModelCpu(new UtilizationModelFull());
+                cloudlet.setUtilizationModelRam(new UtilizationModelDynamic(0.10));
+                cloudlet.setUtilizationModelBw(new UtilizationModelDynamic(0.10));
+                daftar.add(cloudlet);
+            }
+            return daftar;
+        } catch (Exception e) {
+            throw new IllegalStateException("Gagal membaca dataset GoCJ: " + namaDataset, e);
+        }
+    }
+
     private static Datacenter buatDatacenter(CloudSimPlus simulation, String nama, int jumlahHost) {
         List<Host> hostList = new ArrayList<>();
-        // 1 Host A, 2 Host B, dan 2 Host C per datacenter = 26 PE/DC.
-        // Kapasitas ini cukup untuk 10 VM heterogen yang membutuhkan total 22 PE.
         int[] tipeHost = {0, 1, 2, 1, 2};
-        for (int i = 0; i < jumlahHost; i++) {
-            hostList.add(buatHost(tipeHost[i % tipeHost.length]));
-        }
-        Datacenter dc = new DatacenterSimple(simulation, hostList);
+        for (int i = 0; i < jumlahHost; i++) hostList.add(buatHost(tipeHost[i % tipeHost.length]));
+
+        // Membatasi 10 VM pada setiap datacenter sesuai desain project.
+        VmAllocationPolicySimple policy = new VmAllocationPolicySimple((p, vm) -> {
+            int jumlahVm = p.getHostList().stream().mapToInt(host -> host.getVmList().size()).sum();
+            if (jumlahVm >= 10) return Optional.empty();
+            return p.getHostList().stream().filter(host -> host.isSuitableForVm(vm)).findFirst();
+        });
+        Datacenter dc = new DatacenterSimple(simulation, hostList, policy);
         dc.setName(nama);
         return dc;
     }
 
-    /**
-     * Membuat 1 Host sesuai salah satu dari 3 tipe spesifikasi di slide B2:
-     * Tipe A (rendah): 2 core, 2000 MIPS/core, 4 GB RAM
-     * Tipe B (sedang): 4 core, 3000 MIPS/core, 8 GB RAM
-     * Tipe C (tinggi): 8 core, 4000 MIPS/core, 16 GB RAM
-     */
     private static Host buatHost(int tipe) {
-        int jumlahCore;
-        double mipsPerCore;
-        long ramMB;
-        switch (tipe) {
-            case 0 -> { jumlahCore = 2; mipsPerCore = 2000; ramMB = 4096; }
-            case 1 -> { jumlahCore = 4; mipsPerCore = 3000; ramMB = 8192; }
-            default -> { jumlahCore = 8; mipsPerCore = 4000; ramMB = 16384; }
-        }
+        int core = tipe == 0 ? 2 : tipe == 1 ? 4 : 8;
+        double mips = tipe == 0 ? 2000 : tipe == 1 ? 3000 : 4000;
+        long ram = tipe == 0 ? 4096 : tipe == 1 ? 8192 : 16384;
         List<Pe> peList = new ArrayList<>();
-        for (int i = 0; i < jumlahCore; i++) {
-            peList.add(new PeSimple(mipsPerCore));
-        }
-        long bwMbps = 10_000; // bandwidth host
-        long storageMB = 1_000_000; // storage host
-
-        Host host = new HostSimple(ramMB, bwMbps, storageMB, peList);
+        for (int i = 0; i < core; i++) peList.add(new PeSimple(mips));
+        Host host = new HostSimple(ram, 10_000, 1_000_000, peList);
         host.setVmScheduler(new VmSchedulerTimeShared());
         return host;
     }
 
-    /**
-     * Membuat sejumlah VM heterogen, proporsional mengikuti 3 tipe host
-     * (supaya VM yang dibuat realistis sesuai kapasitas host yang menampungnya).
-     */
     private static List<Vm> buatVmHeterogen(int jumlahVm) {
-        List<Vm> daftarVm = new ArrayList<>();
+        List<Vm> daftar = new ArrayList<>();
         for (int i = 0; i < jumlahVm; i++) {
             int tipe = i % 3;
-            double mips;
-            long pes;
-            long ramMB;
-            switch (tipe) {
-                case 0 -> { mips = 1800; pes = 1; ramMB = 1024; }  // VM kecil
-                case 1 -> { mips = 2800; pes = 2; ramMB = 2048; }  // VM sedang
-                default -> { mips = 3800; pes = 4; ramMB = 4096; } // VM besar
-            }
+            double mips = tipe == 0 ? 1800 : tipe == 1 ? 2800 : 3800;
+            long pes = tipe == 0 ? 1 : tipe == 1 ? 2 : 4;
+            long ram = tipe == 0 ? 1024 : tipe == 1 ? 2048 : 4096;
             Vm vm = new VmSimple(mips, pes);
-            vm.setRam(ramMB).setBw(1000).setSize(10_000);
-            // Space-shared menjaga cloudlet yang menunggu tetap memiliki event
-            // berikutnya. Dengan time-shared, CloudSim Plus 8.5.4 dapat menutup
-            // VM setelah cloudlet pertama ketika banyak task terantre.
+            vm.setRam(ram).setBw(1000).setSize(10_000);
             vm.setCloudletScheduler(new CloudletSchedulerSpaceShared());
-            daftarVm.add(vm);
+            daftar.add(vm);
         }
-        return daftarVm;
+        return daftar;
     }
 }

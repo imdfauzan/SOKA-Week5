@@ -14,7 +14,7 @@ import java.util.Map;
  */
 public class MetricsCalculator {
 
-    public static void cetakRingkasan(String namaAlgoritma, List<Cloudlet> cloudletSelesai) {
+    public static void cetakRingkasan(String namaAlgoritma, List<Cloudlet> cloudletSelesai, List<Vm> semuaVm) {
         if (cloudletSelesai.isEmpty()) {
             System.out.println("Tidak ada cloudlet yang selesai untuk " + namaAlgoritma);
             return;
@@ -29,6 +29,7 @@ public class MetricsCalculator {
         // 2. Beban tiap VM (total waktu eksekusi cloudlet yang dijalankan VM itu)
         //    -> dipakai untuk Degree of Imbalance (DI)
         Map<Vm, Double> bebanPerVm = new HashMap<>();
+        semuaVm.forEach(vm -> bebanPerVm.put(vm, 0.0));
         for (Cloudlet cl : cloudletSelesai) {
             Vm vm = cl.getVm();
             // CloudSim Plus 8.5.4 menyediakan getStartTime(), bukan
@@ -52,11 +53,17 @@ public class MetricsCalculator {
                 .average()
                 .orElse(0);
 
-        // 5. RESOURCE UTILIZATION (RU) sederhana = rata-rata (beban VM / makespan)
-        double resourceUtilization = bebanPerVm.values().stream()
-                .mapToDouble(beban -> makespan == 0 ? 0 : beban / makespan)
-                .average()
-                .orElse(0) * 100;
+        // 5. RESOURCE UTILIZATION (RU)
+        // Setiap VM dapat memiliki lebih dari satu PE. Karena itu, penyebut
+        // harus memakai total kapasitas PE selama makespan agar RU tidak
+        // melebihi 100% hanya karena VM menjalankan beberapa PE paralel.
+        long totalPes = semuaVm.stream().mapToLong(Vm::getPesNumber).sum();
+        double totalWaktuCpu = bebanPerVm.values().stream()
+                .mapToDouble(Double::doubleValue)
+                .sum();
+        double resourceUtilization = (makespan == 0 || totalPes == 0)
+                ? 0
+                : totalWaktuCpu / (totalPes * makespan) * 100;
 
         System.out.println("\n================ HASIL: " + namaAlgoritma + " ================");
         System.out.printf("Makespan               : %.2f detik%n", makespan);
@@ -64,7 +71,8 @@ public class MetricsCalculator {
         System.out.printf("Resource Utilization   : %.2f%%\n", resourceUtilization);
         System.out.printf("Throughput             : %.4f task/detik%n", throughput);
         System.out.printf("Avg. Response Time     : %.2f detik%n", avgResponseTime);
-        System.out.println("Jumlah VM aktif dipakai: " + bebanPerVm.size());
+        long vmAktif = bebanPerVm.values().stream().filter(beban -> beban > 0).count();
+        System.out.println("Jumlah VM aktif dipakai: " + vmAktif);
         System.out.println("=================================================\n");
     }
 }

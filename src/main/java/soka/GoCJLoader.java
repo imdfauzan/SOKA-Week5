@@ -2,6 +2,9 @@ package soka;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -33,6 +36,21 @@ public class GoCJLoader {
                 if (!line.isEmpty()) {
                     lengths.add(Long.parseLong(line));
                 }
+            }
+        }
+        return lengths;
+    }
+
+    /** Membaca dataset yang disimpan di src/main/resources. */
+    public static List<Long> loadFromResource(String resourcePath) throws Exception {
+        InputStream stream = GoCJLoader.class.getClassLoader().getResourceAsStream(resourcePath);
+        if (stream == null) throw new IllegalArgumentException("Dataset tidak ditemukan: " + resourcePath);
+        List<Long> lengths = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (!line.isEmpty()) lengths.add(Long.parseLong(line));
             }
         }
         return lengths;

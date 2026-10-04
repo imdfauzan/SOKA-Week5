@@ -13,7 +13,7 @@ import java.util.Map;
  *
  * Cara kerja:
  * 1. Untuk setiap cloudlet yang BELUM dijadwalkan, hitung estimasi Completion Time (CT)
- *    di setiap VM = waktu VM tersebut "siap" (readyTime) + (panjang cloudlet / MIPS VM).
+ *    di setiap slot PE VM = waktu slot tersebut "siap" + (panjang cloudlet / MIPS VM).
  * 2. Hitung "sufferage value" = CT tercepat kedua - CT tercepat pertama.
  *    Nilai ini menandakan seberapa besar "kerugian" kalau cloudlet ini TIDAK
  *    mendapat VM terbaiknya.
@@ -35,9 +35,14 @@ public class SufferageScheduler {
      */
     public static Map<Cloudlet, Vm> schedule(List<Cloudlet> cloudlets, List<Vm> vmList) {
         Map<Cloudlet, Vm> hasil = new HashMap<>();
-        Map<Vm, Double> readyTime = new HashMap<>();
+        // CloudletSchedulerSpaceShared dapat menjalankan beberapa cloudlet
+        // secara bersamaan pada VM yang memiliki lebih dari satu PE.
+        // Karena itu ready time disimpan per slot PE, bukan satu nilai per VM.
+        Map<Vm, List<Double>> readyTime = new HashMap<>();
         for (Vm vm : vmList) {
-            readyTime.put(vm, 0.0);
+            List<Double> slots = new ArrayList<>();
+            for (int i = 0; i < vm.getPesNumber(); i++) slots.add(0.0);
+            readyTime.put(vm, slots);
         }
 
         List<Cloudlet> belumDijadwalkan = new ArrayList<>(cloudlets);
@@ -56,7 +61,12 @@ public class SufferageScheduler {
                 for (Vm vm : vmList) {
                     double mips = vm.getMips();
                     double waktuEksekusi = cl.getLength() / mips;
-                    double ct = readyTime.get(vm) + waktuEksekusi;
+                    List<Double> slots = readyTime.get(vm);
+                    int slotTerbaik = 0;
+                    for (int i = 1; i < slots.size(); i++) {
+                        if (slots.get(i) < slots.get(slotTerbaik)) slotTerbaik = i;
+                    }
+                    double ct = slots.get(slotTerbaik) + waktuEksekusi;
 
                     if (ct < ctTerbaik) {
                         ctKedua = ctTerbaik;
@@ -79,7 +89,12 @@ public class SufferageScheduler {
             }
 
             hasil.put(cloudletTerpilih, vmTerbaikUntukTerpilih);
-            readyTime.put(vmTerbaikUntukTerpilih, ctTerbaikUntukTerpilih);
+            List<Double> slots = readyTime.get(vmTerbaikUntukTerpilih);
+            int slot = 0;
+            for (int i = 1; i < slots.size(); i++) {
+                if (slots.get(i) < slots.get(slot)) slot = i;
+            }
+            slots.set(slot, ctTerbaikUntukTerpilih);
             belumDijadwalkan.remove(cloudletTerpilih);
         }
 
