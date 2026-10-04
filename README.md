@@ -51,8 +51,8 @@ Di mana *Tmax*, *Tmin*, dan *Tavg* berturut-turut adalah beban waktu eksekusi VM
 ### 3. Resource Utilization (RU)
 Persentase rata-rata pemanfaatan kemampuan komputasi VM.
 Semakin tinggi nilai RU, semakin baik pemanfaatan sumber daya.
-$$RU = \frac{\sum_{i=1}^{m} \text{Beban}_i}{m \times \text{Makespan}} \times 100\%$$
-Di mana *m* adalah jumlah VM aktif.
+$$RU = \frac{\sum_i \text{BebanWaktuCPU}_i}{\left(\sum_i \text{PE}_i\right) \times \text{Makespan}} \times 100\%$$
+Di mana `BebanWaktuCPU` adalah total durasi eksekusi cloudlet pada VM dan `PE` adalah jumlah core virtual VM. Penyebut menggunakan total PE karena satu VM dapat menjalankan beberapa cloudlet secara paralel pada beberapa PE.
 
 ### 4. Throughput
 Jumlah tugas yang berhasil diselesaikan per detik.
@@ -77,7 +77,7 @@ graph TD
     subgraph Client_Broker["Client/Broker"]
         Broker["DatacenterBrokerSimple"]
         Scheduler["Sufferage Scheduler"]
-        Workload["GoCJ Workload: 500 Tasks"]
+        Workload["GoCJ Workload: 500 / 1000 Tasks"]
     end
 
     subgraph DC1["Datacenter 1 - DC1"]
@@ -115,12 +115,12 @@ graph TD
 #### 2. Virtual Machine (20 VM, 10 VM/Datacenter)
 | Profil VM | vCPU (PE) | MIPS | RAM (MB) | Bandwidth | Kebijakan Penjadwalan |
 |:---|:---:|:---:|:---:|:---:|:---|
-| **VM Kecil** | 1 | 1.800 | 1.024 (1 GB) | 1.000 Mbps | Time-Shared Scheduler |
-| **VM Sedang** | 2 | 2.800 | 2.048 (2 GB) | 1.000 Mbps | Time-Shared Scheduler |
-| **VM Besar** | 4 | 3.800 | 4.096 (4 GB) | 1.000 Mbps | Time-Shared Scheduler |
+| **VM Kecil** | 1 | 1.800 | 1.024 (1 GB) | 1.000 Mbps | Space-Shared Cloudlet Scheduler |
+| **VM Sedang** | 2 | 2.800 | 2.048 (2 GB) | 1.000 Mbps | Space-Shared Cloudlet Scheduler |
+| **VM Besar** | 4 | 3.800 | 4.096 (4 GB) | 1.000 Mbps | Space-Shared Cloudlet Scheduler |
 
 #### 3. Dataset Beban Kerja (Google Cloud Jobs - GoCJ)
-Simulasi menggunakan 500 cloudlet yang merepresentasikan variasi karakteristik komputasi nyata berdasarkan distribusi dataset **GoCJ (Google Cloud Jobs)**:
+Simulasi menggunakan dataset asli **GoCJ (Google Cloud Jobs)**. Pengujian dilakukan pada 500 dan 1000 cloudlet:
 - **Small Task**: $1.000 - 10.000$ Million Instructions (MI)
 - **Medium Task**: $10.000 - 50.000$ MI
 - **Large Task**: $50.000 - 100.000$ MI
@@ -168,15 +168,42 @@ flowchart TD
 │       │           ├── SufferageScheduler.java    # Implementasi Algoritma Heuristik Sufferage
 │       │           └── RoundRobinScheduler.java   # Baseline Scheduler pembanding
 │       └── resources
-│           └── GoCJ_Dataset_500.txt          # (Opsional) File dataset riil GoCJ
+│           └── Dataset_GoCJ/                 # File dataset GoCJ asli
 └── target                                    # Direktori hasil kompilasi binary & JAR
 ```
+
+## Pemetaan Proposal ke Kode
+
+Bagian ini dapat digunakan saat demo untuk menunjukkan hubungan antara isi proposal dan implementasi.
+
+| Bagian proposal | Implementasi |
+|:---|:---|
+| Dua datacenter | `Kelompok7Simulation.buatDatacenter()` dipanggil untuk `DC1` dan `DC2` pada `src/main/java/soka/Kelompok7Simulation.java` baris 49-50. |
+| Lima host per datacenter, total sepuluh host | Parameter `5` pada baris 49-50, lalu host dibuat di method `buatDatacenter()` baris 124-137. |
+| Host heterogen tipe A/B/C | Method `buatHost()` pada baris 140-148 mengatur core, MIPS, RAM, bandwidth, dan storage. |
+| Dua puluh VM, sepuluh VM per datacenter | Dua pemanggilan `buatVmHeterogen(10)` pada baris 55-57. Pemetaan VM 0-9 ke DC1 dan VM 10-19 ke DC2 dilakukan pada baris 51-53. |
+| VM kecil, sedang, dan besar | Method `buatVmHeterogen()` pada baris 151-164 mengatur MIPS, PE, dan RAM berdasarkan tiga tipe VM. |
+| Dataset GoCJ 500 dan 1000 cloudlet | Daftar dataset pada baris 40-43 dan pembacaan resource pada baris 98-118. File datanya berada di `src/main/resources/Dataset_GoCJ/`. |
+| Task independent | Setiap baris dataset dibuat menjadi satu `CloudletSimple` tanpa dependency atau DAG pada baris 107-116. |
+| Sufferage heuristic | `SufferageScheduler.schedule()` pada `src/main/java/soka/scheduler/SufferageScheduler.java` baris 36-101. Completion time dihitung pada baris 61-77, sufferage pada baris 80-81, dan task dipetakan pada baris 91-98. |
+| Round Robin sebagai baseline | `RoundRobinScheduler.schedule()` pada `src/main/java/soka/scheduler/RoundRobinScheduler.java` baris 19-27. |
+| Broker menempatkan cloudlet ke VM | Binding dilakukan dengan `broker.bindCloudletToVm()` pada `Kelompok7Simulation.java` baris 67-68. |
+| Makespan, DI, RU, throughput, dan response time | Semua metrik dihitung di `src/main/java/soka/MetricsCalculator.java` baris 23-75. RU memakai total waktu CPU dibagi total kapasitas PE selama makespan. |
+| Semua cloudlet harus selesai | Ukuran hasil scheduler divalidasi pada baris 62-65 dan jumlah cloudlet selesai dicetak pada baris 72-74. |
+| Provisioning statis dan tanpa migrasi | Host dan VM dibuat sebelum simulasi dimulai; tidak ada kode autoscaling atau migrasi VM. |
+
+### Batasan implementasi saat ini
+
+- Prioritas atau deadline cloudlet belum dimodelkan. Scheduler hanya menggunakan panjang cloudlet, MIPS VM, PE, dan ready time.
+- Bandwidth dan storage VM saat ini sama untuk semua VM; variasi utama ada pada MIPS, PE, dan RAM.
+- Implementasi yang digunakan adalah Sufferage heuristic sebagai dasar pendekatan LBMM, bukan seluruh variasi LBMM.
+- Dataset dibaca dari file resource di repository. Generator sintetis masih tersedia di `GoCJLoader`, tetapi tidak dipanggil oleh `Kelompok7Simulation`.
 
 ---
 
 ## 🚀 Cara Menjalankan Simulasi
 
-- **Java Development Kit (JDK)**: Versi 21+ (`java -version`).
+- **Java Development Kit (JDK)**: Versi 17+ (`java -version`).
 - **Apache Maven**: Versi 3.8+ (`mvn -version`) atau gunakan Maven Wrapper (`mvnw`).
 
 ### Run via Terminal / CLI
@@ -195,23 +222,16 @@ flowchart TD
 ## 📊 Hasil Output Simulasi
 
 ```text
-================== Starting CloudSim Plus 8.5.1 ==================
-Datacenter dibuat: DC1 & DC2 (masing-masing 5 Host, total 10 Host heterogen)
-Total VM dibuat: 20
-Total Cloudlet (task) dari GoCJ: 500
-
->>> Menjalankan simulasi dengan algoritma Sufferage (LBMM)...
-...
-================== Simulation finished at time 1822.46 ==================
-
+================ DATASET: GoCJ_Dataset_500.txt ================
+>>> Menjalankan Sufferage (LBMM)
 Cloudlet selesai: 500 dari 500
 
-================ HASIL: Sufferage Heuristic (LBMM) ================
-Makespan               : 1822.35 detik
-Degree of Imbalance(DI): 1.3400
-Resource Utilization   : 56.68%
-Throughput             : 0.2744 task/detik
-Avg. Response Time     : 399.43 detik
+================ HASIL: Sufferage (LBMM) ================
+Makespan               : 602.43 detik
+Degree of Imbalance(DI): 1.4319
+Resource Utilization   : 77.36%
+Throughput             : 0.8300 task/detik
+Avg. Response Time     : 250.70 detik
 Jumlah VM aktif dipakai: 20
 =================================================
 ```
