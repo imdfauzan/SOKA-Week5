@@ -21,35 +21,80 @@ import org.cloudsimplus.vms.VmSimple;
 import soka.scheduler.RoundRobinScheduler;
 import soka.scheduler.SufferageScheduler;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
-/** Runner sederhana: Sufferage sebagai algoritma utama dan Round Robin sebagai baseline. */
+/**
+ * Runner: Sufferage sebagai algoritma utama dan Round Robin sebagai baseline.
+ *
+ * Mode default      : java -jar target/soka-simulasi.jar               (GoCJ 500 & 1000, cetak detail)
+ * Mode eksperimen   : java -jar target/soka-simulasi.jar --eksperimen  (GoCJ 100..1000, 3 run, tulis hasil.csv)
+ */
 public class Kelompok7Simulation {
     private record Algoritma(String nama, BiFunction<List<Cloudlet>, List<Vm>, Map<Cloudlet, Vm>> scheduler) { }
+
+    /** Metrik hasil satu run (dihitung di sini supaya MetricsCalculator tidak perlu diubah). */
+    private record Hasil(double makespan, double di, double ru, double throughput, double art) { }
+
+    private record Keluaran(Hasil hasil, double schedMs) { }
 
     public static void main(String[] args) {
         List<Algoritma> algoritma = List.of(
                 new Algoritma("Sufferage (LBMM)", SufferageScheduler::schedule),
                 new Algoritma("Round Robin (baseline)", RoundRobinScheduler::schedule)
         );
+        if (args.length > 0 && args[0].equals("--eksperimen")) {
+            eksperimenGoCJ(algoritma);
+            return;
+        }
         for (String dataset : List.of("GoCJ_Dataset_500.txt", "GoCJ_Dataset_1000.txt")) {
             System.out.println("\n================ DATASET: " + dataset + " ================");
-            for (Algoritma a : algoritma) jalankan(a, dataset);
+            for (Algoritma a : algoritma) jalankan(a, dataset, true);
         }
     }
 
-    private static void jalankan(Algoritma algoritma, String namaDataset) {
+    private static void eksperimenGoCJ(List<Algoritma> algoritma) {
+        final int RUN = 3;
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(Path.of("hasil.csv")))) {
+            w.println("dataset_type,size,algorithm,run,makespan,di,ru,throughput,art,sched_ms");
+            for (int size = 100; size <= 1000; size += 100) {
+                String dataset = "GoCJ_Dataset_" + size + ".txt";
+                for (Algoritma a : algoritma) {
+                    for (int run = 1; run <= RUN; run++) {
+                        Keluaran k = jalankan(a, dataset, false);
+                        Hasil h = k.hasil();
+                        w.printf(Locale.US, "gocj,%d,%s,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.3f%n",
+                                size, a.nama(), run, h.makespan(), h.di(), h.ru(),
+                                h.throughput(), h.art(), k.schedMs());
+                        w.flush();
+                        System.out.printf(Locale.US, "[OK] %s | %s | run %d | makespan %.2f%n",
+                                dataset, a.nama(), run, h.makespan());
+                    }
+                }
+            }
+            System.out.println("\nSelesai. Hasil tersimpan di hasil.csv");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static Keluaran jalankan(Algoritma algoritma, String namaDataset, boolean verbose) {
         CloudSimPlus simulation = new CloudSimPlus();
         DatacenterBroker broker = new DatacenterBrokerSimple(simulation);
         Datacenter dc1 = buatDatacenter(simulation, "DC1", 5);
         Datacenter dc2 = buatDatacenter(simulation, "DC2", 5);
         // VM 0-9 langsung diarahkan ke DC1 dan VM 10-19 ke DC2.
-        // Dengan begitu broker tidak perlu mencoba VM 10-19 ke DC1 terlebih dahulu.
         broker.setDatacenterMapper((defaultDc, vm) -> vm.getId() < 10 ? dc1 : dc2);
 
         List<Vm> vmList = new ArrayList<>();
@@ -58,20 +103,55 @@ public class Kelompok7Simulation {
         broker.submitVmList(vmList);
 
         List<Cloudlet> cloudletList = buatCloudlet(namaDataset);
+        long t0 = System.nanoTime();
         Map<Cloudlet, Vm> penjadwalan = algoritma.scheduler().apply(cloudletList, vmList);
+        double schedMs = (System.nanoTime() - t0) / 1e6;
         if (penjadwalan.size() != cloudletList.size()) {
             throw new IllegalStateException("Scheduler hanya menghasilkan " + penjadwalan.size()
                     + " assignment untuk " + cloudletList.size() + " cloudlet");
         }
-        cetakDistribusi(namaDataset, algoritma.nama(), penjadwalan, vmList);
+        if (verbose) cetakDistribusi(namaDataset, algoritma.nama(), penjadwalan, vmList);
         penjadwalan.forEach(broker::bindCloudletToVm);
         broker.submitCloudletList(cloudletList);
 
-        System.out.println("\n>>> Menjalankan " + algoritma.nama());
+        if (verbose) System.out.println("\n>>> Menjalankan " + algoritma.nama());
         simulation.start();
         List<Cloudlet> selesai = broker.getCloudletFinishedList();
-        System.out.printf("Cloudlet selesai: %d dari %d%n", selesai.size(), cloudletList.size());
-        MetricsCalculator.cetakRingkasan(algoritma.nama(), selesai, vmList);
+        if (selesai.size() != cloudletList.size()) {
+            throw new IllegalStateException("Cloudlet selesai " + selesai.size()
+                    + " dari " + cloudletList.size() + " (" + namaDataset + ")");
+        }
+        if (verbose) {
+            System.out.printf("Cloudlet selesai: %d dari %d%n", selesai.size(), cloudletList.size());
+            MetricsCalculator.cetakRingkasan(algoritma.nama(), selesai, vmList);
+        }
+        return new Keluaran(hitungMetrik(selesai, vmList), schedMs);
+    }
+
+    /** Rumus identik dengan MetricsCalculator.cetakRingkasan, tapi mengembalikan angka. */
+    private static Hasil hitungMetrik(List<Cloudlet> selesai, List<Vm> semuaVm) {
+        double makespan = selesai.stream().mapToDouble(Cloudlet::getFinishTime).max().orElse(0);
+
+        Map<Vm, Double> bebanPerVm = new HashMap<>();
+        semuaVm.forEach(vm -> bebanPerVm.put(vm, 0.0));
+        for (Cloudlet cl : selesai) {
+            bebanPerVm.merge(cl.getVm(), cl.getFinishTime() - cl.getStartTime(), Double::sum);
+        }
+        double bMax = bebanPerVm.values().stream().mapToDouble(v -> v).max().orElse(0);
+        double bMin = bebanPerVm.values().stream().mapToDouble(v -> v).min().orElse(0);
+        double bAvg = bebanPerVm.values().stream().mapToDouble(v -> v).average().orElse(1);
+        double di = (bAvg == 0) ? 0 : (bMax - bMin) / bAvg;
+
+        double throughput = (makespan == 0) ? 0 : selesai.size() / makespan;
+        double art = selesai.stream()
+                .mapToDouble(cl -> cl.getFinishTime() - cl.getSubmissionDelay())
+                .average().orElse(0);
+
+        long totalPes = semuaVm.stream().mapToLong(Vm::getPesNumber).sum();
+        double totalCpu = bebanPerVm.values().stream().mapToDouble(Double::doubleValue).sum();
+        double ru = (makespan == 0 || totalPes == 0) ? 0 : totalCpu / (totalPes * makespan) * 100;
+
+        return new Hasil(makespan, di, ru, throughput, art);
     }
 
     private static void cetakDistribusi(String namaDataset, String namaAlgoritma,
@@ -99,16 +179,15 @@ public class Kelompok7Simulation {
         List<Cloudlet> daftar = new ArrayList<>();
         try {
             List<Long> lengths = GoCJLoader.loadFromResource("Dataset_GoCJ/" + namaDataset);
-            int expected = namaDataset.contains("500") ? 500 : namaDataset.contains("1000") ? 1000 : -1;
-            if (expected > 0 && lengths.size() != expected) {
+            // Ambil angka dari nama file (GoCJ_Dataset_300.txt -> 300) untuk validasi jumlah baris.
+            int expected = Integer.parseInt(namaDataset.replaceAll("\\D+", ""));
+            if (lengths.size() != expected) {
                 throw new IllegalArgumentException("Jumlah task tidak sesuai: " + lengths.size()
                         + ", seharusnya " + expected);
             }
             for (int i = 0; i < lengths.size(); i++) {
                 long length = lengths.get(i);
-                // ID wajib unik. Tanpa ID unik, HashMap hasil scheduler dapat
-                // menganggap beberapa cloudlet sebagai key yang sama sehingga
-                // hanya sebagian task yang benar-benar dibind ke scheduler.
+                // ID wajib unik, kalau tidak HashMap hasil scheduler menganggap beberapa cloudlet sama.
                 Cloudlet cloudlet = new CloudletSimple(i, length, 1);
                 cloudlet.setUtilizationModelCpu(new UtilizationModelFull());
                 cloudlet.setUtilizationModelRam(new UtilizationModelDynamic(0.10));
