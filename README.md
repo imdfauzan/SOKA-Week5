@@ -78,7 +78,7 @@ graph TD
     subgraph Client_Broker["Client/Broker"]
         Broker["DatacenterBrokerSimple"]
         Scheduler["Sufferage / Round Robin Scheduler"]
-        Workload["GoCJ Workload: 100 - 1000 Tasks"]
+        Workload["GoCJ / Synthetic Workload"]
     end
 
     subgraph DC1["Datacenter 1 - DC1"]
@@ -121,8 +121,19 @@ Urutan tipe host per datacenter: A, B, C, B, C.
 | **VM Sedang** | 2 | 2.800 | 2.048 (2 GB) | 1.000 Mbps | Space-Shared Cloudlet Scheduler |
 | **VM Besar** | 4 | 3.800 | 4.096 (4 GB) | 1.000 Mbps | Space-Shared Cloudlet Scheduler |
 
-#### 3. Dataset Beban Kerja (Google Cloud Jobs - GoCJ)
-Simulasi memakai dataset **GoCJ (Google Cloud Jobs)**. Pengujian dilakukan pada **10 ukuran dataset: 100, 200, 300, ..., 1000 cloudlet**. Kategori ukuran task:
+#### 3. Dataset Beban Kerja
+Simulasi mendukung dua jenis workload:
+
+- **GoCJ**: 10 ukuran dataset, yaitu 100, 200, 300, ..., 1000 cloudlet.
+- **Sintetis**: 10 ukuran dataset, yaitu 1000, 2000, 3000, ..., 10000 task.
+
+Dataset sintetis dibuat langsung di memori oleh `GoCJLoader.generateSynthetic()`.
+Seed dibedakan untuk setiap pasangan ukuran dan run, sedangkan Sufferage dan
+Round Robin memakai list task length yang sama pada run yang sama. Proporsi
+kategori sintetis yang digunakan adalah Small 20%, Medium 40%, Large 30%,
+Extra Large 4%, dan Huge 6%.
+
+Kategori ukuran task yang digunakan:
 - **Small Task**: 1.000 - 10.000 Million Instructions (MI)
 - **Medium Task**: 10.000 - 50.000 MI
 - **Large Task**: 50.000 - 100.000 MI
@@ -159,8 +170,9 @@ flowchart TD
 .
 ├── pom.xml                               # Konfigurasi dependensi Maven & Shade plugin
 ├── README.md
-├── plot.py                               # Pembuat grafik dari hasil.csv
+├── plot.py                               # Pembuat grafik dari hasil eksperimen
 ├── hasil.csv                             # Output mode --eksperimen (data mentah per run)
+├── hasil_sintetis.csv                    # Output mode --sintetis (data mentah per run)
 ├── ringkasan_rata2.csv                   # Rata-rata & std per dataset x algoritma
 ├── grafik/                               # Grafik PNG (dibuat oleh plot.py)
 ├── src
@@ -169,7 +181,7 @@ flowchart TD
 │       │   └── soka
 │       │       ├── Kelompok7Simulation.java   # Main class: orkestrasi simulasi & mode eksperimen
 │       │       ├── GoCJLoader.java           # Loader & generator sintetis dataset GoCJ
-│       │       ├── MetricsCalculator.java    # Cetak ringkasan metrik (mode default)
+│       │       ├── MetricsCalculator.java    # Cetak ringkasan metrik (mode --demo2)
 │       │       └── scheduler
 │       │           ├── SufferageScheduler.java    # Algoritma Heuristik Sufferage
 │       │           └── RoundRobinScheduler.java   # Baseline Scheduler pembanding
@@ -190,6 +202,7 @@ Bagian ini dapat dipakai saat demo untuk menunjukkan hubungan proposal dan imple
 | Dua puluh VM, sepuluh VM per datacenter | Dua pemanggilan `buatVmHeterogen(10)` di `jalankan()`. VM 0-9 dipetakan ke DC1 dan VM 10-19 ke DC2 lewat `setDatacenterMapper`. |
 | VM kecil, sedang, dan besar | `Kelompok7Simulation.buatVmHeterogen()` mengatur MIPS, PE, dan RAM untuk tiga tipe VM. |
 | Dataset GoCJ 100 sampai 1000 cloudlet | Loop ukuran dataset di `eksperimenGoCJ()`; pembacaan file di `buatCloudlet()`. File ada di `src/main/resources/Dataset_GoCJ/`. |
+| Dataset sintetis 1000 sampai 10000 task | Loop ukuran dan run di `eksperimenSintetis()`; nilai MI dibuat oleh `GoCJLoader.generateSynthetic()` dengan proporsi `PROPORSI`. |
 | Task independent | Setiap baris dataset dibuat menjadi satu `CloudletSimple` tanpa dependency/DAG di `buatCloudlet()`. |
 | Sufferage heuristic | `SufferageScheduler.schedule()` di `src/main/java/soka/scheduler/SufferageScheduler.java`. |
 | Round Robin sebagai baseline | `RoundRobinScheduler.schedule()` di `src/main/java/soka/scheduler/RoundRobinScheduler.java`. |
@@ -204,7 +217,7 @@ Bagian ini dapat dipakai saat demo untuk menunjukkan hubungan proposal dan imple
 - Bandwidth dan storage VM sama untuk semua VM; variasi hanya pada MIPS, PE, dan RAM.
 - Yang diimplementasikan adalah Sufferage heuristic sebagai dasar pendekatan LBMM, bukan seluruh variasi LBMM.
 - Sufferage dan Round Robin bersifat **deterministik**: untuk dataset yang sama, tiga kali run menghasilkan metrik kualitas yang identik (std = 0). Hanya `sched_ms` yang bervariasi.
-- Dataset sintetis (1000 sampai 10000 task) belum terintegrasi ke mode eksperimen.
+- Dataset sintetis 1000 sampai 10000 task terintegrasi dengan seed berbeda per run.
 
 ---
 
@@ -226,10 +239,15 @@ mvn clean package -DskipTests
 ```
 Hasil build berupa fat JAR `target/soka-simulasi.jar`. Build ulang setiap kali kode berubah.
 
-### 2. Mode default (demo cepat: GoCJ 500 dan 1000, output detail)
+### 2. Mode demo2 (GoCJ 500 dan 1000, output detail)
 ```bash
-java -jar target/soka-simulasi.jar
+java -jar target/soka-simulasi.jar --demo2
 ```
+Mode ini menampilkan konfigurasi infrastruktur terlebih dahulu: 2 datacenter,
+5 host per datacenter, tipe host rendah/sedang/tinggi, serta 20 VM dan
+spesifikasinya. Setelah CloudSim melakukan provisioning, mode ini juga
+menampilkan host aktual untuk setiap VM. Setelah itu simulasi GoCJ 500 dan
+1000 dijalankan.
 
 ### 3. Mode eksperimen (GoCJ 100 sampai 1000, 3 run per konfigurasi)
 ```bash
@@ -238,11 +256,30 @@ java -jar target/soka-simulasi.jar --eksperimen
 Menjalankan 10 dataset x 2 algoritma x 3 run (60 simulasi) dan menulis `hasil.csv` dengan kolom:
 `dataset_type,size,algorithm,run,makespan,di,ru,throughput,art,sched_ms`
 
-### 4. Buat grafik
+### 4. Mode eksperimen dataset sintetis (1000 sampai 10000 task)
+```bash
+java -jar target/soka-simulasi.jar --sintetis
+```
+Menjalankan ukuran 1000, 2000, ..., 10000 task, masing-masing 3 run untuk
+Sufferage dan Round Robin, lalu menulis `hasil_sintetis.csv`. Seed dibedakan untuk
+setiap pasangan `(ukuran, run)`, sedangkan kedua algoritma memakai dataset yang
+sama pada run tersebut. Proporsi kategori task diatur pada konstanta `PROPORSI`
+di `Kelompok7Simulation.java`.
+
+### 5. Buat grafik
 ```bash
 python3 plot.py
 ```
-Output: `grafik/<tipe>_<metrik>.png` (X = jumlah task, Y = metrik, satu garis per algoritma, error bar = std antar run) dan `ringkasan_rata2.csv`.
+Perintah ini membaca `hasil.csv` dan `hasil_sintetis.csv` jika tersedia. Outputnya:
+
+- `grafik/gocj_<metrik>.png` untuk GoCJ 100 sampai 1000 task.
+- `grafik/sintetis_<metrik>.png` untuk sintetis 1000 sampai 10000 task.
+- `ringkasan_rata2.csv`, berisi rata-rata dan standar deviasi setiap metrik per ukuran dataset dan algoritma.
+
+Sumbu X adalah jumlah task, sumbu Y adalah metrik, garis dibedakan berdasarkan algoritma,
+dan error bar adalah standar deviasi antar tiga run. Pada GoCJ, dataset yang sama diulang
+sehingga metrik kualitas dapat memiliki standar deviasi nol; pada sintetis, setiap run
+menggunakan dataset berbeda sehingga error bar menunjukkan variasi antar dataset.
 
 Jalankan semua perintah dari root repo, karena dataset dibaca dari resource dan `hasil.csv` ditulis ke folder kerja saat ini.
 
@@ -250,10 +287,29 @@ Jalankan semua perintah dari root repo, karena dataset dibaca dari resource dan 
 
 ## 📊 Hasil Simulasi
 
-### Contoh output mode default (GoCJ 500)
+### Contoh output mode `--demo2` (GoCJ 500)
 
 ```text
+=============== KONFIGURASI INFRASTRUKTUR ===============
+CloudSim Plus: 2 datacenter, masing-masing 5 host
+Total: 10 host dan 20 VM
+
+Host per datacenter:
+  DC1 (5 host):
+    Host-00: rendah (2 core, 2.000 MIPS/core, 4.096 MB RAM)
+    Host-01: sedang (4 core, 3.000 MIPS/core, 8.192 MB RAM)
+    Host-02: tinggi (8 core, 4.000 MIPS/core, 16.384 MB RAM)
+
+Alokasi VM ke host setelah provisioning:
+  VM-00 -> DC1 / Host-00: rendah (2 core, 2.000 MIPS/core, 4.096 MB RAM)
+  VM-01 -> DC1 / Host-01: sedang (4 core, 3.000 MIPS/core, 8.192 MB RAM)
+  VM-02 -> DC1 / Host-02: tinggi (8 core, 4.000 MIPS/core, 16.384 MB RAM)
+
 ================ DATASET: GoCJ_Dataset_500.txt ================
+Assignment Sufferage (LBMM) [GoCJ_Dataset_500.txt]:
+  VM-00 (1800 MIPS, 1 PE): 13 task, 837,500 MI
+  VM-01 (2800 MIPS, 2 PE): 19 task, 2,575,000 MI
+
 >>> Menjalankan Sufferage (LBMM)
 Cloudlet selesai: 500 dari 500
 
@@ -276,11 +332,13 @@ Jumlah VM aktif dipakai: 20
 | GoCJ 1000 | Sufferage | 1095.35 | 1.3944 | 85.10 | 0.9130 | 476.29 |
 | GoCJ 1000 | Round Robin | 4608.44 | 1.1551 | 26.36 | 0.2170 | 948.09 |
 
-Data lengkap untuk ukuran 100 sampai 1000 ada di `hasil.csv` dan `ringkasan_rata2.csv`.
+Data lengkap GoCJ ada di `hasil.csv`; data sintetis ada di `hasil_sintetis.csv`.
+Ringkasan gabungan kedua eksperimen ada di `ringkasan_rata2.csv`.
 
 **Pengamatan**
 - Sufferage menurunkan makespan sekitar 70% (500 task) dan 76% (1000 task) dibanding Round Robin, dengan RU naik dari kisaran 26-29% menjadi 77-85%.
 - DI Sufferage lebih tinggi daripada Round Robin. Sufferage meminimalkan completion time sehingga beban menumpuk di VM cepat, sedangkan Round Robin membagi jumlah task rata tetapi lambat. Ini sejalan dengan trade-off yang dibahas pada proposal (bagian 3.3): algoritma yang hanya mengoptimasi makespan cenderung menghasilkan DI tinggi.
+- RU yang lebih tinggi tidak otomatis berarti algoritma selalu lebih baik. RU harus dibaca bersama makespan, throughput, ART, dan DI. Pada hasil ini Sufferage lebih baik secara waktu dan throughput, dengan trade-off DI yang lebih tinggi.
 
 ### Grafik perbandingan (GoCJ 100 - 1000)
 
@@ -296,6 +354,20 @@ Data lengkap untuk ukuran 100 sampai 1000 ada di `hasil.csv` dan `ringkasan_rata
 |:--:|:--:|
 | ![ART](grafik/gocj_art.png) | ![Sched](grafik/gocj_sched_ms.png) |
 
+### Grafik perbandingan (dataset sintetis 1000 - 10000)
+
+| Makespan | Degree of Imbalance |
+|:--:|:--:|
+| ![Makespan sintetis](grafik/sintetis_makespan.png) | ![DI sintetis](grafik/sintetis_di.png) |
+
+| Resource Utilization | Throughput |
+|:--:|:--:|
+| ![RU sintetis](grafik/sintetis_ru.png) | ![Throughput sintetis](grafik/sintetis_throughput.png) |
+
+| Avg. Response Time | Waktu Scheduling |
+|:--:|:--:|
+| ![ART sintetis](grafik/sintetis_art.png) | ![Sched sintetis](grafik/sintetis_sched_ms.png) |
+
 ---
 
 ## 🔮 Roadmap Pengembangan Selanjutnya
@@ -304,7 +376,7 @@ Data lengkap untuk ukuran 100 sampai 1000 ada di `hasil.csv` dan `ringkasan_rata
 - [x] **Heuristic Scheduler**: *Sufferage (LBMM Foundation)* ([SufferageScheduler.java](src/main/java/soka/scheduler/SufferageScheduler.java)).
 - [x] **Eksperimen GoCJ 100-1000**: 3 run per dataset, ekspor `hasil.csv`.
 - [x] **Visualisasi**: grafik per metrik (X = jumlah task) lewat `plot.py`.
-- [ ] **Dataset sintetis 1000-10000 task** dengan proporsi kategori yang ditentukan sendiri, seed berbeda per run.
+- [x] **Dataset sintetis 1000-10000 task** dengan proporsi kategori yang ditentukan sendiri, seed berbeda per run.
 - [ ] **Metaheuristik Bio-Inspired**:
   - Cat Swarm Optimization (CSO)
   - Coati Optimization Algorithm (COA)

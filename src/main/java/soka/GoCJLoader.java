@@ -6,25 +6,34 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
 /**
- * Loader untuk dataset GoCJ (Google Cloud Jobs).
+ * Loader untuk dataset GoCJ (Google Cloud Jobs) + generator dataset sintetis.
  *
  * CARA PAKAI DATASET ASLI:
- * 1. Download file GoCJ_Dataset_500.txt / .csv dari Mendeley Data
- *    (cari "GoCJ Google Cloud Jobs Dataset" di Google / Mendeley).
- * 2. Taruh file itu di folder src/main/resources/, misal "GoCJ_Dataset_500.txt"
+ * 1. Taruh file GoCJ_Dataset_N.txt di src/main/resources/Dataset_GoCJ/
  *    (isinya satu angka panjang task dalam MI per baris).
- * 3. Panggil GoCJLoader.loadFromFile("src/main/resources/GoCJ_Dataset_500.txt").
+ * 2. Panggil GoCJLoader.loadFromResource("Dataset_GoCJ/GoCJ_Dataset_N.txt").
  *
- * Jika file belum ada / belum sempat download, dipakai generator sintetis
- * di bawah ini yang MENIRU pola GoCJ (job length bervariasi dari kecil
- * sampai sangat besar) supaya kamu tetap bisa jalankan & demo sekarang.
- * Sebelum submit final project, GANTI ke dataset asli.
+ * DATASET SINTETIS:
+ * generateSynthetic(jumlahTask, seed, proporsi) menghasilkan dataset dengan
+ * proporsi kategori yang ditentukan sendiri. Jumlah task per kategori EXACT
+ * (bukan acak), jadi proporsi selalu sama di setiap seed; yang berbeda antar
+ * seed adalah nilai MI di dalam kategori dan urutan task.
  */
 public class GoCJLoader {
+
+    /** Rentang MI per kategori: Small, Medium, Large, Extra Large, Huge (sesuai README). */
+    private static final long[][] KATEGORI = {
+        {1_000, 10_000},      // Small
+        {10_000, 50_000},     // Medium
+        {50_000, 100_000},    // Large
+        {100_000, 200_000},   // Extra Large
+        {200_000, 300_000}    // Huge
+    };
 
     /** Baca panjang cloudlet (dalam Million Instructions) dari file teks, satu angka per baris. */
     public static List<Long> loadFromFile(String path) throws Exception {
@@ -57,25 +66,58 @@ public class GoCJLoader {
     }
 
     /**
-     * Generator sintetis meniru distribusi GoCJ: campuran task
-     * Small, Medium, Large, Extra Large, dan Huge (dalam MI).
-     * Dipakai sebagai fallback / untuk uji coba cepat sebelum dataset asli didapat.
+     * Generator sintetis dengan proporsi kategori yang bisa diatur.
+     *
+     * @param jumlahTask total task
+     * @param seed       seed RNG (seed sama -> dataset identik)
+     * @param proporsi   5 angka (Small, Medium, Large, XL, Huge) yang jumlahnya 1.0
+     */
+    public static List<Long> generateSynthetic(int jumlahTask, long seed, double[] proporsi) {
+        if (proporsi.length != KATEGORI.length) {
+            throw new IllegalArgumentException("Proporsi harus berisi " + KATEGORI.length + " angka");
+        }
+        double total = 0;
+        for (double p : proporsi) total += p;
+        if (Math.abs(total - 1.0) > 1e-9) {
+            throw new IllegalArgumentException("Jumlah proporsi harus 1.0, sekarang " + total);
+        }
+
+        // Jumlah task per kategori (dibulatkan ke bawah); sisa pembulatan masuk ke kategori terbesar.
+        int[] jumlah = new int[KATEGORI.length];
+        int terpakai = 0;
+        int idxTerbesar = 0;
+        for (int i = 0; i < KATEGORI.length; i++) {
+            jumlah[i] = (int) Math.floor(jumlahTask * proporsi[i] + 1e-9);
+            terpakai += jumlah[i];
+            if (proporsi[i] > proporsi[idxTerbesar]) idxTerbesar = i;
+        }
+        jumlah[idxTerbesar] += jumlahTask - terpakai;
+
+        Random rnd = new Random(seed);
+        List<Long> lengths = new ArrayList<>(jumlahTask);
+        for (int i = 0; i < KATEGORI.length; i++) {
+            long min = KATEGORI[i][0];
+            long max = KATEGORI[i][1];
+            for (int j = 0; j < jumlah[i]; j++) {
+                lengths.add(min + (long) (rnd.nextDouble() * (max - min)));
+            }
+        }
+        // Acak urutan supaya tidak terurut per kategori (penting untuk Round Robin).
+        Collections.shuffle(lengths, rnd);
+        return lengths;
+    }
+
+    /**
+     * Generator lama (kategori dipilih seragam 20% tiap kategori). Dipertahankan
+     * supaya kode lain yang memanggilnya tidak rusak.
      */
     public static List<Long> generateSyntheticGoCJLike(int jumlahTask, long seed) {
         Random rnd = new Random(seed);
         List<Long> lengths = new ArrayList<>();
-        // rentang MI per kategori -- nilai perkiraan, sesuaikan jika sudah pegang dataset asli
-        long[][] kategori = {
-            {1_000, 10_000},      // Small
-            {10_000, 50_000},     // Medium
-            {50_000, 100_000},    // Large
-            {100_000, 200_000},   // Extra Large
-            {200_000, 300_000}    // Huge
-        };
         for (int i = 0; i < jumlahTask; i++) {
-            int kat = rnd.nextInt(kategori.length);
-            long min = kategori[kat][0];
-            long max = kategori[kat][1];
+            int kat = rnd.nextInt(KATEGORI.length);
+            long min = KATEGORI[kat][0];
+            long max = KATEGORI[kat][1];
             long length = min + (long) (rnd.nextDouble() * (max - min));
             lengths.add(length);
         }

@@ -38,8 +38,9 @@ import java.util.function.BiFunction;
 /**
  * Runner: Sufferage sebagai algoritma utama dan Round Robin sebagai baseline.
  *
- * Mode default      : java -jar target/soka-simulasi.jar               (GoCJ 500 & 1000, cetak detail)
- * Mode eksperimen   : java -jar target/soka-simulasi.jar --eksperimen  (GoCJ 100..1000, 3 run, tulis hasil.csv)
+ * --demo2           : GoCJ 500 & 1000, cetak detail dan konfigurasi infrastruktur
+ * --eksperimen      : GoCJ 100..1000, 3 run         -> hasil.csv
+ * --sintetis        : sintetis 1000..10000, 3 run   -> hasil_sintetis.csv
  */
 public class Kelompok7Simulation {
     private record Algoritma(String nama, BiFunction<List<Cloudlet>, List<Vm>, Map<Cloudlet, Vm>> scheduler) { }
@@ -49,37 +50,77 @@ public class Kelompok7Simulation {
 
     private record Keluaran(Hasil hasil, double schedMs) { }
 
+    private static final int RUN = 3;
+
+    /**
+     * Proporsi dataset sintetis: Small, Medium, Large, Extra Large, Huge.
+     * Dominan task kecil/menengah seperti beban cloud pada umumnya. Ubah di sini kalau mau
+     * proporsi lain (jumlahnya harus 1.0).
+     */
+    private static final double[] PROPORSI = {0.20, 0.40, 0.30, 0.04, 0.06};
+
+    private static final String CSV_HEADER = "dataset_type,size,algorithm,run,makespan,di,ru,throughput,art,sched_ms";
+
     public static void main(String[] args) {
         List<Algoritma> algoritma = List.of(
                 new Algoritma("Sufferage (LBMM)", SufferageScheduler::schedule),
                 new Algoritma("Round Robin (baseline)", RoundRobinScheduler::schedule)
         );
-        if (args.length > 0 && args[0].equals("--eksperimen")) {
-            eksperimenGoCJ(algoritma);
-            return;
+        String mode = args.length > 0 ? args[0] : "";
+        switch (mode) {
+            case "--eksperimen" -> eksperimenGoCJ(algoritma);
+            case "--sintetis" -> eksperimenSintetis(algoritma);
+                case "--demo2", "" -> demo2(algoritma);
+                default -> throw new IllegalArgumentException(
+                        "Mode tidak dikenal: " + mode
+                                + ". Gunakan --demo2, --eksperimen, atau --sintetis");
+            }
         }
-        for (String dataset : List.of("GoCJ_Dataset_500.txt", "GoCJ_Dataset_1000.txt")) {
-            System.out.println("\n================ DATASET: " + dataset + " ================");
-            for (Algoritma a : algoritma) jalankan(a, dataset, true);
+
+        private static void demo2(List<Algoritma> algoritma) {
+            cetakKonfigurasiDemo();
+            for (String dataset : List.of("GoCJ_Dataset_500.txt", "GoCJ_Dataset_1000.txt")) {
+                System.out.println("\n================ DATASET: " + dataset + " ================");
+                List<Long> lengths = bacaGoCJ(dataset);
+                for (Algoritma a : algoritma) jalankan(a, dataset, lengths, true);
+            }
         }
-    }
+
+        private static void cetakKonfigurasiDemo() {
+            System.out.println("=============== KONFIGURASI INFRASTRUKTUR ===============");
+            System.out.println("CloudSim Plus: 2 datacenter, masing-masing 5 host");
+            System.out.println("Total: 10 host dan 20 VM");
+            System.out.println("\nHost per datacenter:");
+            int[] tipeHost = {0, 1, 2, 1, 2};
+            for (int dc = 1; dc <= 2; dc++) {
+                System.out.printf("  DC%d (5 host):%n", dc);
+                for (int i = 0; i < tipeHost.length; i++) {
+                    System.out.printf("    Host-%02d: %s%n", i, deskripsiHost(tipeHost[i]));
+                }
+            }
+            System.out.println("\nVM dan datacenter tujuan:");
+            for (int i = 0; i < 20; i++) {
+                int dc = i < 10 ? 1 : 2;
+                int tipe = (i % 10) % 3;
+                System.out.printf("  VM-%02d -> DC%d: %s%n", i, dc, deskripsiVm(tipe));
+            }
+            System.out.println("===========================================================\n");
+        }
+
+    // ------------------------------------------------------------------ eksperimen
 
     private static void eksperimenGoCJ(List<Algoritma> algoritma) {
-        final int RUN = 3;
         try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(Path.of("hasil.csv")))) {
-            w.println("dataset_type,size,algorithm,run,makespan,di,ru,throughput,art,sched_ms");
+            w.println(CSV_HEADER);
             for (int size = 100; size <= 1000; size += 100) {
                 String dataset = "GoCJ_Dataset_" + size + ".txt";
+                List<Long> lengths = bacaGoCJ(dataset);
                 for (Algoritma a : algoritma) {
                     for (int run = 1; run <= RUN; run++) {
-                        Keluaran k = jalankan(a, dataset, false);
-                        Hasil h = k.hasil();
-                        w.printf(Locale.US, "gocj,%d,%s,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.3f%n",
-                                size, a.nama(), run, h.makespan(), h.di(), h.ru(),
-                                h.throughput(), h.art(), k.schedMs());
-                        w.flush();
+                        Keluaran k = jalankan(a, dataset, lengths, false);
+                        tulisBaris(w, "gocj", size, a, run, k);
                         System.out.printf(Locale.US, "[OK] %s | %s | run %d | makespan %.2f%n",
-                                dataset, a.nama(), run, h.makespan());
+                                dataset, a.nama(), run, k.hasil().makespan());
                     }
                 }
             }
@@ -89,7 +130,40 @@ public class Kelompok7Simulation {
         }
     }
 
-    private static Keluaran jalankan(Algoritma algoritma, String namaDataset, boolean verbose) {
+    private static void eksperimenSintetis(List<Algoritma> algoritma) {
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(Path.of("hasil_sintetis.csv")))) {
+            w.println(CSV_HEADER);
+            for (int size = 1000; size <= 10_000; size += 1000) {
+                for (int run = 1; run <= RUN; run++) {
+                    // Seed berbeda tiap (size, run) -> dataset berbeda tiap run.
+                    // Kedua algoritma memakai dataset yang SAMA pada run yang sama (perbandingan adil).
+                    long seed = size * 31L + run;
+                    List<Long> lengths = GoCJLoader.generateSynthetic(size, seed, PROPORSI);
+                    String label = "sintetis_" + size + "_seed" + seed;
+                    for (Algoritma a : algoritma) {
+                        Keluaran k = jalankan(a, label, lengths, false);
+                        tulisBaris(w, "sintetis", size, a, run, k);
+                        System.out.printf(Locale.US, "[OK] %s | %s | run %d | makespan %.2f | sched %.0f ms%n",
+                                label, a.nama(), run, k.hasil().makespan(), k.schedMs());
+                    }
+                }
+            }
+            System.out.println("\nSelesai. Hasil tersimpan di hasil_sintetis.csv");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void tulisBaris(PrintWriter w, String tipe, int size, Algoritma a, int run, Keluaran k) {
+        Hasil h = k.hasil();
+        w.printf(Locale.US, "%s,%d,%s,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.3f%n",
+                tipe, size, a.nama(), run, h.makespan(), h.di(), h.ru(), h.throughput(), h.art(), k.schedMs());
+        w.flush();
+    }
+
+    // ------------------------------------------------------------------ simulasi
+
+    private static Keluaran jalankan(Algoritma algoritma, String label, List<Long> lengths, boolean verbose) {
         CloudSimPlus simulation = new CloudSimPlus();
         DatacenterBroker broker = new DatacenterBrokerSimple(simulation);
         Datacenter dc1 = buatDatacenter(simulation, "DC1", 5);
@@ -102,7 +176,7 @@ public class Kelompok7Simulation {
         vmList.addAll(buatVmHeterogen(10));
         broker.submitVmList(vmList);
 
-        List<Cloudlet> cloudletList = buatCloudlet(namaDataset);
+        List<Cloudlet> cloudletList = buatCloudlet(lengths);
         long t0 = System.nanoTime();
         Map<Cloudlet, Vm> penjadwalan = algoritma.scheduler().apply(cloudletList, vmList);
         double schedMs = (System.nanoTime() - t0) / 1e6;
@@ -110,16 +184,17 @@ public class Kelompok7Simulation {
             throw new IllegalStateException("Scheduler hanya menghasilkan " + penjadwalan.size()
                     + " assignment untuk " + cloudletList.size() + " cloudlet");
         }
-        if (verbose) cetakDistribusi(namaDataset, algoritma.nama(), penjadwalan, vmList);
+        if (verbose) cetakDistribusi(label, algoritma.nama(), penjadwalan, vmList);
         penjadwalan.forEach(broker::bindCloudletToVm);
         broker.submitCloudletList(cloudletList);
 
         if (verbose) System.out.println("\n>>> Menjalankan " + algoritma.nama());
         simulation.start();
+        if (verbose) cetakAlokasiVm(vmList);
         List<Cloudlet> selesai = broker.getCloudletFinishedList();
         if (selesai.size() != cloudletList.size()) {
             throw new IllegalStateException("Cloudlet selesai " + selesai.size()
-                    + " dari " + cloudletList.size() + " (" + namaDataset + ")");
+                    + " dari " + cloudletList.size() + " (" + label + ")");
         }
         if (verbose) {
             System.out.printf("Cloudlet selesai: %d dari %d%n", selesai.size(), cloudletList.size());
@@ -154,7 +229,7 @@ public class Kelompok7Simulation {
         return new Hasil(makespan, di, ru, throughput, art);
     }
 
-    private static void cetakDistribusi(String namaDataset, String namaAlgoritma,
+    private static void cetakDistribusi(String label, String namaAlgoritma,
                                         Map<Cloudlet, Vm> penjadwalan, List<Vm> vmList) {
         Map<Vm, Integer> jumlahPerVm = new LinkedHashMap<>();
         Map<Vm, Long> miPerVm = new LinkedHashMap<>();
@@ -167,7 +242,7 @@ public class Kelompok7Simulation {
             miPerVm.merge(vm, cloudlet.getLength(), Long::sum);
         });
 
-        System.out.printf("Assignment %s [%s]:%n", namaAlgoritma, namaDataset);
+        System.out.printf("Assignment %s [%s]:%n", namaAlgoritma, label);
         for (int i = 0; i < vmList.size(); i++) {
             Vm vm = vmList.get(i);
             System.out.printf("  VM-%02d (%.0f MIPS, %d PE): %d task, %,d MI%n",
@@ -175,30 +250,53 @@ public class Kelompok7Simulation {
         }
     }
 
-    private static List<Cloudlet> buatCloudlet(String namaDataset) {
-        List<Cloudlet> daftar = new ArrayList<>();
+    private static void cetakAlokasiVm(List<Vm> vmList) {
+        System.out.println("\nAlokasi VM ke host setelah provisioning:");
+        for (Vm vm : vmList) {
+            Host host = vm.getHost();
+            if (host == null || host == Host.NULL) {
+                throw new IllegalStateException("VM-" + vm.getId() + " tidak mendapat host");
+            }
+            System.out.printf("  VM-%02d -> %s / Host-%02d: %s%n",
+                    vm.getId(),
+                    host.getDatacenter().getName(),
+                    host.getId(),
+                    deskripsiHost(host));
+        }
+    }
+
+    // ------------------------------------------------------------------ dataset
+
+    /** Baca file GoCJ dari resource dan validasi jumlah baris = angka di nama file. */
+    private static List<Long> bacaGoCJ(String namaDataset) {
         try {
             List<Long> lengths = GoCJLoader.loadFromResource("Dataset_GoCJ/" + namaDataset);
-            // Ambil angka dari nama file (GoCJ_Dataset_300.txt -> 300) untuk validasi jumlah baris.
             int expected = Integer.parseInt(namaDataset.replaceAll("\\D+", ""));
             if (lengths.size() != expected) {
                 throw new IllegalArgumentException("Jumlah task tidak sesuai: " + lengths.size()
                         + ", seharusnya " + expected);
             }
-            for (int i = 0; i < lengths.size(); i++) {
-                long length = lengths.get(i);
-                // ID wajib unik, kalau tidak HashMap hasil scheduler menganggap beberapa cloudlet sama.
-                Cloudlet cloudlet = new CloudletSimple(i, length, 1);
-                cloudlet.setUtilizationModelCpu(new UtilizationModelFull());
-                cloudlet.setUtilizationModelRam(new UtilizationModelDynamic(0.10));
-                cloudlet.setUtilizationModelBw(new UtilizationModelDynamic(0.10));
-                daftar.add(cloudlet);
-            }
-            return daftar;
+            return lengths;
         } catch (Exception e) {
             throw new IllegalStateException("Gagal membaca dataset GoCJ: " + namaDataset, e);
         }
     }
+
+    /** Cloudlet dibuat baru di setiap run (objek CloudSim tidak boleh dipakai ulang antar simulasi). */
+    private static List<Cloudlet> buatCloudlet(List<Long> lengths) {
+        List<Cloudlet> daftar = new ArrayList<>(lengths.size());
+        for (int i = 0; i < lengths.size(); i++) {
+            // ID wajib unik, kalau tidak HashMap hasil scheduler menganggap beberapa cloudlet sama.
+            Cloudlet cloudlet = new CloudletSimple(i, lengths.get(i), 1);
+            cloudlet.setUtilizationModelCpu(new UtilizationModelFull());
+            cloudlet.setUtilizationModelRam(new UtilizationModelDynamic(0.10));
+            cloudlet.setUtilizationModelBw(new UtilizationModelDynamic(0.10));
+            daftar.add(cloudlet);
+        }
+        return daftar;
+    }
+
+    // ------------------------------------------------------------------ infrastruktur
 
     private static Datacenter buatDatacenter(CloudSimPlus simulation, String nama, int jumlahHost) {
         List<Host> hostList = new ArrayList<>();
@@ -227,6 +325,25 @@ public class Kelompok7Simulation {
         return host;
     }
 
+    private static String deskripsiHost(int tipe) {
+        return switch (tipe) {
+            case 0 -> "rendah (2 core, 2.000 MIPS/core, 4.096 MB RAM)";
+            case 1 -> "sedang (4 core, 3.000 MIPS/core, 8.192 MB RAM)";
+            case 2 -> "tinggi (8 core, 4.000 MIPS/core, 16.384 MB RAM)";
+            default -> throw new IllegalArgumentException("Tipe host tidak dikenal: " + tipe);
+        };
+    }
+
+    private static String deskripsiHost(Host host) {
+        int jumlahCore = host.getPeList().size();
+        long mips = host.getPeList().get(0).getCapacity();
+        if (jumlahCore == 2 && mips == 2000) return deskripsiHost(0);
+        if (jumlahCore == 4 && mips == 3000) return deskripsiHost(1);
+        if (jumlahCore == 8 && mips == 4000) return deskripsiHost(2);
+        return String.format(Locale.US, "custom (%d core, %,.0f MIPS/core)",
+                jumlahCore, (double) mips);
+    }
+
     private static List<Vm> buatVmHeterogen(int jumlahVm) {
         List<Vm> daftar = new ArrayList<>();
         for (int i = 0; i < jumlahVm; i++) {
@@ -240,5 +357,14 @@ public class Kelompok7Simulation {
             daftar.add(vm);
         }
         return daftar;
+    }
+
+    private static String deskripsiVm(int tipe) {
+        return switch (tipe) {
+            case 0 -> "rendah (1 PE, 1.800 MIPS, 1.024 MB RAM)";
+            case 1 -> "sedang (2 PE, 2.800 MIPS, 2.048 MB RAM)";
+            case 2 -> "tinggi (4 PE, 3.800 MIPS, 4.096 MB RAM)";
+            default -> throw new IllegalArgumentException("Tipe VM tidak dikenal: " + tipe);
+        };
     }
 }

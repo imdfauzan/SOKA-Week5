@@ -1,0 +1,139 @@
+
+================ DATASET: GoCJ_Dataset_500.txt ================
+Assignment Sufferage (LBMM) [GoCJ_Dataset_500.txt]:
+  VM-00 (1800 MIPS, 1 PE): 13 task, 837,500 MI
+  VM-01 (2800 MIPS, 2 PE): 19 task, 2,575,000 MI
+  VM-02 (3800 MIPS, 4 PE): 33 task, 7,026,000 MI
+  VM-03 (1800 MIPS, 1 PE): 12 task, 841,000 MI
+  VM-04 (2800 MIPS, 2 PE): 26 task, 2,579,500 MI
+  VM-05 (3800 MIPS, 4 PE): 41 task, 7,235,000 MI
+  VM-06 (1800 MIPS, 1 PE): 13 task, 792,500 MI
+  VM-07 (2800 MIPS, 2 PE): 25 task, 2,578,000 MI
+  VM-08 (3800 MIPS, 4 PE): 42 task, 7,120,500 MI
+  VM-09 (1800 MIPS, 1 PE): 12 task, 790,500 MI
+  VM-10 (1800 MIPS, 1 PE): 16 task, 827,000 MI
+  VM-11 (2800 MIPS, 2 PE): 25 task, 2,622,000 MI
+  VM-12 (3800 MIPS, 4 PE): 46 task, 7,129,000 MI
+  VM-13 (1800 MIPS, 1 PE): 13 task, 793,000 MI
+  VM-14 (2800 MIPS, 2 PE): 27 task, 2,587,500 MI
+  VM-15 (3800 MIPS, 4 PE): 40 task, 7,241,000 MI
+  VM-16 (1800 MIPS, 1 PE): 14 task, 815,500 MI
+  VM-17 (2800 MIPS, 2 PE): 24 task, 2,654,500 MI
+  VM-18 (3800 MIPS, 4 PE): 43 task, 7,158,000 MI
+  VM-19 (1800 MIPS, 1 PE): 16 task, 798,500 MI
+
+>>> Menjalankan Sufferage (LBMM)
+Cloudlet selesai: 500 dari 500
+
+================ HASIL: Sufferage (LBMM) ================
+Makespan               : 602.43 detik
+Degree of Imbalance(DI): 1.4319
+Resource Utilization   : 77.36%
+Throughput             : 0.8300 task/detik
+Avg. Response Time     : 250.70 detik
+Jumlah VM aktif dipakai: 20
+=================================================
+
+Assignment Round Robin (baseline) [GoCJ_Dataset_500.txt]:
+  VM-00 (1800 MIPS, 1 PE): 25 task, 2,962,000 MI
+  VM-01 (2800 MIPS, 2 PE): 25 task, 2,796,500 MI
+  VM-02 (3800 MIPS, 4 PE): 25 task, 3,995,000 MI
+  VM-03 (1800 MIPS, 1 PE): 25 task, 2,806,000 MI
+  VM-04 (2800 MIPS, 2 PE): 25 task, 2,617,500 MI
+  VM-05 (3800 MIPS, 4 PE): 25 task, 4,346,000 MI
+  VM-06 (1800 MIPS, 1 PE): 25 task, 2,666,500 MI
+  VM-07 (2800 MIPS, 2 PE): 25 task, 3,842,000 MI
+  VM-08 (3800 MIPS, 4 PE): 25 task, 4,146,500 MI
+  VM-09 (1800 MIPS, 1 PE): 25 task, 2,895,500 MI
+  VM-10 (1800 MIPS, 1 PE): 25 task, 3,466,000 MI
+  VM-11 (2800 MIPS, 2 PE): 25 task, 2,417,500 MI
+  VM-12 (3800 MIPS, 4 PE): 25 task, 2,321,000 MI
+  VM-13 (1800 MIPS, 1 PE): 25 task, 3,601,000 MI
+  VM-14 (2800 MIPS, 2 PE): 25 task, 3,987,000 MI
+  VM-15 (3800 MIPS, 4 PE): 25 task, 5,148,000 MI
+  VM-16 (1800 MIPS, 1 PE): 25 task, 2,620,500 MI
+  VM-17 (2800 MIPS, 2 PE): 25 task, 2,060,000 MI
+  VM-18 (3800 MIPS, 4 PE): 25 task, 3,947,500 MI
+  VM-19 (1800 MIPS, 1 PE): 25 task, 2,359,500 MI
+
+>>> Menjalankan Round Robin (baseline)
+Cloudlet selesai: 500 dari 500
+
+================ HASIL: Round Robin (baseline) ================
+Makespan               : 2005.45 detik
+Degree of Imbalance(DI): 1.0847
+Resource Utilization   : 29.06%
+Throughput             : 0.2493 task/detik
+Avg. Response Time     : 460.94 detik
+Jumlah VM aktif dipakai: 20
+=================================================
+
+
+================ DATASET: GoCJ_Dataset_1000.txt ================
+Assignment Sufferage (LBMM) [GoCJ_Dataset_1000.txt]:
+  VM-00 (1800 MIPS, 1 PE): 27 task, 1,636,000 MI
+  VM-01 (2800 MIPS, 2 PE): 50 task, 5,187,000 MI
+  VM-02 (3800 MIPS, 4 PE): 83 task, 14,239,000 MI
+  VM-03 (1800 MIPS, 1 PE): 23 task, 1,612,500 MI
+  VM-04 (2800 MIPS, 2 PE): 44 task, 5,199,500 MI
+  VM-05 (3800 MIPS, 4 PE): 81 task, 14,226,500 MI
+  VM-06 (1800 MIPS, 1 PE): 26 task, 1,641,500 MI
+  VM-07 (2800 MIPS, 2 PE): 53 task, 5,264,000 MI
+  VM-08 (3800 MIPS, 4 PE): 86 task, 14,174,500 MI
+  VM-09 (1800 MIPS, 1 PE): 29 task, 1,706,000 MI
+  VM-10 (1800 MIPS, 1 PE): 24 task, 1,701,500 MI
+  VM-11 (2800 MIPS, 2 PE): 52 task, 5,197,000 MI
+  VM-12 (3800 MIPS, 4 PE): 84 task, 14,253,000 MI
+  VM-13 (1800 MIPS, 1 PE): 26 task, 1,669,000 MI
+  VM-14 (2800 MIPS, 2 PE): 49 task, 5,212,000 MI
+  VM-15 (3800 MIPS, 4 PE): 79 task, 14,136,500 MI
+  VM-16 (1800 MIPS, 1 PE): 27 task, 1,663,500 MI
+  VM-17 (2800 MIPS, 2 PE): 51 task, 5,144,500 MI
+  VM-18 (3800 MIPS, 4 PE): 77 task, 14,118,500 MI
+  VM-19 (1800 MIPS, 1 PE): 29 task, 1,680,000 MI
+
+>>> Menjalankan Sufferage (LBMM)
+Cloudlet selesai: 1000 dari 1000
+
+================ HASIL: Sufferage (LBMM) ================
+Makespan               : 1095.35 detik
+Degree of Imbalance(DI): 1.3944
+Resource Utilization   : 85.10%
+Throughput             : 0.9130 task/detik
+Avg. Response Time     : 476.29 detik
+Jumlah VM aktif dipakai: 20
+=================================================
+
+Assignment Round Robin (baseline) [GoCJ_Dataset_1000.txt]:
+  VM-00 (1800 MIPS, 1 PE): 50 task, 5,950,500 MI
+  VM-01 (2800 MIPS, 2 PE): 50 task, 5,227,000 MI
+  VM-02 (3800 MIPS, 4 PE): 50 task, 5,945,000 MI
+  VM-03 (1800 MIPS, 1 PE): 50 task, 5,537,000 MI
+  VM-04 (2800 MIPS, 2 PE): 50 task, 5,146,000 MI
+  VM-05 (3800 MIPS, 4 PE): 50 task, 6,575,500 MI
+  VM-06 (1800 MIPS, 1 PE): 50 task, 8,278,000 MI
+  VM-07 (2800 MIPS, 2 PE): 50 task, 5,950,500 MI
+  VM-08 (3800 MIPS, 4 PE): 50 task, 5,747,500 MI
+  VM-09 (1800 MIPS, 1 PE): 50 task, 7,817,000 MI
+  VM-10 (1800 MIPS, 1 PE): 50 task, 8,192,500 MI
+  VM-11 (2800 MIPS, 2 PE): 50 task, 6,248,000 MI
+  VM-12 (3800 MIPS, 4 PE): 50 task, 6,186,000 MI
+  VM-13 (1800 MIPS, 1 PE): 50 task, 7,510,500 MI
+  VM-14 (2800 MIPS, 2 PE): 50 task, 5,960,500 MI
+  VM-15 (3800 MIPS, 4 PE): 50 task, 9,315,000 MI
+  VM-16 (1800 MIPS, 1 PE): 50 task, 5,652,500 MI
+  VM-17 (2800 MIPS, 2 PE): 50 task, 6,934,500 MI
+  VM-18 (3800 MIPS, 4 PE): 50 task, 5,976,000 MI
+  VM-19 (1800 MIPS, 1 PE): 50 task, 5,512,500 MI
+
+>>> Menjalankan Round Robin (baseline)
+Cloudlet selesai: 1000 dari 1000
+
+================ HASIL: Round Robin (baseline) ================
+Makespan               : 4608.44 detik
+Degree of Imbalance(DI): 1.1551
+Resource Utilization   : 26.36%
+Throughput             : 0.2170 task/detik
+Avg. Response Time     : 948.09 detik
+Jumlah VM aktif dipakai: 20
+=================================================

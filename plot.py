@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Bikin grafik dari hasil.csv (output `java -jar target/soka-simulasi.jar --eksperimen`).
+"""Bikin grafik dari hasil eksperimen.
 
-Jalankan dari root repo (folder yang sama dengan pom.xml dan hasil.csv):
-    python3 plot.py                # baca hasil.csv
-    python3 plot.py file_lain.csv  # atau pakai CSV lain
+Jalankan dari root repo (folder yang sama dengan pom.xml):
+    python3 plot.py                         # baca hasil.csv dan hasil_sintetis.csv (yang ada saja)
+    python3 plot.py a.csv b.csv             # atau tentukan file sendiri
 
 Output:
-    grafik/<tipe>_<metrik>.png   (X = jumlah task, Y = metrik, 1 garis per algoritma)
+    grafik/<tipe>_<metrik>.png   (X = jumlah task, Y = metrik, 1 garis per algoritma,
+                                  error bar = std antar run)
     ringkasan_rata2.csv          (rata-rata dan std per dataset x algoritma)
 """
 import os
@@ -17,7 +18,7 @@ matplotlib.use("Agg")  # tanpa GUI, aman di terminal
 import matplotlib.pyplot as plt
 import pandas as pd
 
-CSV = sys.argv[1] if len(sys.argv) > 1 else "hasil.csv"
+CSVS = sys.argv[1:] or ["hasil.csv", "hasil_sintetis.csv"]
 OUT = "grafik"
 
 METRICS = {
@@ -30,10 +31,14 @@ METRICS = {
 }
 DATASETS = [("gocj", "GoCJ"), ("sintetis", "Sintetis")]
 
-if not os.path.exists(CSV):
-    sys.exit(f"File {CSV} tidak ditemukan. Jalankan dulu: java -jar target/soka-simulasi.jar --eksperimen")
+ada = [f for f in CSVS if os.path.exists(f)]
+if not ada:
+    sys.exit(f"Tidak ada file CSV ({', '.join(CSVS)}). Jalankan dulu java -jar target/soka-simulasi.jar --eksperimen / --sintetis")
+for f in CSVS:
+    if f not in ada:
+        print(f"[skip] {f} tidak ditemukan")
 
-df = pd.read_csv(CSV)
+df = pd.concat([pd.read_csv(f) for f in ada], ignore_index=True)
 os.makedirs(OUT, exist_ok=True)
 
 ringkasan = []
