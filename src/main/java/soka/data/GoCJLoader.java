@@ -1,4 +1,4 @@
-package soka;
+package soka.data;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -15,7 +15,6 @@ import java.util.Random;
  *
  * CARA PAKAI DATASET ASLI:
  * 1. Taruh file GoCJ_Dataset_N.txt di src/main/resources/Dataset_GoCJ/
- *    (isinya satu angka panjang task dalam MI per baris).
  * 2. Panggil GoCJLoader.loadFromResource("Dataset_GoCJ/GoCJ_Dataset_N.txt").
  *
  * DATASET SINTETIS:
@@ -108,8 +107,7 @@ public class GoCJLoader {
     }
 
     /**
-     * Generator lama (kategori dipilih seragam 20% tiap kategori). Dipertahankan
-     * supaya kode lain yang memanggilnya tidak rusak.
+     * Generator lama (kategori dipilih seragam 20% tiap kategori).
      */
     public static List<Long> generateSyntheticGoCJLike(int jumlahTask, long seed) {
         Random rnd = new Random(seed);

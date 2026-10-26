@@ -1,4 +1,4 @@
-package soka;
+package soka.runner;
 
 import org.cloudsimplus.allocationpolicies.VmAllocationPolicySimple;
 import org.cloudsimplus.brokers.DatacenterBroker;
@@ -18,8 +18,11 @@ import org.cloudsimplus.utilizationmodels.UtilizationModelDynamic;
 import org.cloudsimplus.utilizationmodels.UtilizationModelFull;
 import org.cloudsimplus.vms.Vm;
 import org.cloudsimplus.vms.VmSimple;
-import soka.scheduler.RoundRobinScheduler;
-import soka.scheduler.SufferageScheduler;
+import soka.data.GoCJLoader;
+import soka.metrics.MetricsCalculator;
+import soka.scheduler.baseline.RoundRobinScheduler;
+import soka.scheduler.heuristic.SufferageScheduler;
+import soka.scheduler.metaheuristic.CatSwarmScheduler;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -36,13 +39,16 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 /**
- * Runner: Sufferage sebagai algoritma utama dan Round Robin sebagai baseline.
+ * Runner: CSO dan Sufferage sebagai algoritma optimisasi, Round Robin sebagai baseline.
  *
- * --demo2           : GoCJ 500 & 1000, cetak detail dan konfigurasi infrastruktur
- * --eksperimen      : GoCJ 100..1000, 3 run         -> hasil.csv
- * --sintetis        : sintetis 1000..10000, 3 run   -> hasil_sintetis.csv
+ * --demo                    : GoCJ 500 & 1000, cetak detail dan konfigurasi semua algoritma
+ * --cso-demo                : GoCJ 500 & 1000, hanya Cat Swarm Optimization
+ * --experiment-gocj         : GoCJ 100..1000, 3 run -> results/raw/gocj.csv
+ * --experiment-synthetic    : sintetis 1000..10000, 3 run -> results/raw/synthetic.csv
+ * --experiment-cso-gocj     : GoCJ 100..1000, hanya CSO -> results/raw/cso_gocj.csv
+ * --experiment-cso-synthetic: sintetis 100..10000, hanya CSO -> results/raw/cso_synthetic.csv
  */
-public class Kelompok7Simulation {
+public class SimulationRunner {
     private record Algoritma(String nama, BiFunction<List<Cloudlet>, List<Vm>, Map<Cloudlet, Vm>> scheduler) { }
 
     /** Metrik hasil satu run (dihitung di sini supaya MetricsCalculator tidak perlu diubah). */
@@ -54,30 +60,35 @@ public class Kelompok7Simulation {
 
     /**
      * Proporsi dataset sintetis: Small, Medium, Large, Extra Large, Huge.
-     * Dominan task kecil/menengah seperti beban cloud pada umumnya. Ubah di sini kalau mau
-     * proporsi lain (jumlahnya harus 1.0).
+     * Dominan task kecil/menengah seperti beban cloud pada umumnya.
      */
     private static final double[] PROPORSI = {0.20, 0.40, 0.30, 0.04, 0.06};
 
     private static final String CSV_HEADER = "dataset_type,size,algorithm,run,makespan,di,ru,throughput,art,sched_ms";
 
     public static void main(String[] args) {
-        List<Algoritma> algoritma = List.of(
+        List<Algoritma> semuaAlgoritma = List.of(
+                new Algoritma("Cat Swarm Optimization", CatSwarmScheduler::schedule),
                 new Algoritma("Sufferage (LBMM)", SufferageScheduler::schedule),
                 new Algoritma("Round Robin (baseline)", RoundRobinScheduler::schedule)
         );
+        List<Algoritma> cso = List.of(semuaAlgoritma.get(0));
         String mode = args.length > 0 ? args[0] : "";
         switch (mode) {
-            case "--eksperimen" -> eksperimenGoCJ(algoritma);
-            case "--sintetis" -> eksperimenSintetis(algoritma);
-                case "--demo2", "" -> demo2(algoritma);
+                case "--experiment-gocj", "--eksperimen" -> runGoCJExperiment(semuaAlgoritma, "results/raw/gocj.csv");
+                case "--experiment-synthetic", "--sintetis" -> runSyntheticExperiment(semuaAlgoritma, "results/raw/synthetic.csv");
+                case "--experiment-cso-gocj" -> runGoCJExperiment(cso, "results/raw/cso_gocj.csv");
+                case "--experiment-cso-synthetic" -> runSyntheticExperiment(cso, "results/raw/cso_synthetic.csv");
+                case "--cso-demo" -> demo(cso);
+                case "--demo", "--demo2", "" -> demo(semuaAlgoritma);
                 default -> throw new IllegalArgumentException(
                         "Mode tidak dikenal: " + mode
-                                + ". Gunakan --demo2, --eksperimen, atau --sintetis");
+                                    + ". Gunakan --demo, --cso-demo, --experiment-gocj, "
+                                    + "--experiment-cso-gocj, --experiment-synthetic, atau --experiment-cso-synthetic");
             }
         }
 
-        private static void demo2(List<Algoritma> algoritma) {
+    private static void demo(List<Algoritma> algoritma) {
             cetakKonfigurasiDemo();
             for (String dataset : List.of("GoCJ_Dataset_500.txt", "GoCJ_Dataset_1000.txt")) {
                 System.out.println("\n================ DATASET: " + dataset + " ================");
@@ -86,7 +97,7 @@ public class Kelompok7Simulation {
             }
         }
 
-        private static void cetakKonfigurasiDemo() {
+    private static void cetakKonfigurasiDemo() {
             System.out.println("=============== KONFIGURASI INFRASTRUKTUR ===============");
             System.out.println("CloudSim Plus: 2 datacenter, masing-masing 5 host");
             System.out.println("Total: 10 host dan 20 VM");
@@ -109,8 +120,9 @@ public class Kelompok7Simulation {
 
     // ------------------------------------------------------------------ eksperimen
 
-    private static void eksperimenGoCJ(List<Algoritma> algoritma) {
-        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(Path.of("hasil.csv")))) {
+    private static void runGoCJExperiment(List<Algoritma> algoritma, String outputPath) {
+        createResultsDirectory();
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(Path.of(outputPath)))) {
             w.println(CSV_HEADER);
             for (int size = 100; size <= 1000; size += 100) {
                 String dataset = "GoCJ_Dataset_" + size + ".txt";
@@ -124,19 +136,20 @@ public class Kelompok7Simulation {
                     }
                 }
             }
-            System.out.println("\nSelesai. Hasil tersimpan di hasil.csv");
+            System.out.println("\nSelesai. Hasil tersimpan di " + outputPath);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    private static void eksperimenSintetis(List<Algoritma> algoritma) {
-        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(Path.of("hasil_sintetis.csv")))) {
+    private static void runSyntheticExperiment(List<Algoritma> algoritma, String outputPath) {
+        createResultsDirectory();
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(Path.of(outputPath)))) {
             w.println(CSV_HEADER);
             for (int size = 1000; size <= 10_000; size += 1000) {
                 for (int run = 1; run <= RUN; run++) {
-                    // Seed berbeda tiap (size, run) -> dataset berbeda tiap run.
-                    // Kedua algoritma memakai dataset yang SAMA pada run yang sama (perbandingan adil).
+                    // Seed berbeda tiap (size, run) > dataset berbeda tiap run.
+                    // Kedua algoritma memakai dataset yang SAMA pada run yang sama.
                     long seed = size * 31L + run;
                     List<Long> lengths = GoCJLoader.generateSynthetic(size, seed, PROPORSI);
                     String label = "sintetis_" + size + "_seed" + seed;
@@ -148,9 +161,17 @@ public class Kelompok7Simulation {
                     }
                 }
             }
-            System.out.println("\nSelesai. Hasil tersimpan di hasil_sintetis.csv");
+            System.out.println("\nSelesai. Hasil tersimpan di " + outputPath);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private static void createResultsDirectory() {
+        try {
+            Files.createDirectories(Path.of("results/raw"));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Tidak dapat membuat direktori results/raw", e);
         }
     }
 

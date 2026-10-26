@@ -1,4 +1,4 @@
-package soka.scheduler;
+package soka.scheduler.heuristic;
 
 import org.cloudsimplus.cloudlets.Cloudlet;
 import org.cloudsimplus.vms.Vm;

@@ -1,4 +1,4 @@
-package soka;
+package soka.metrics;
 
 import org.cloudsimplus.cloudlets.Cloudlet;
 import org.cloudsimplus.vms.Vm;

@@ -2,13 +2,13 @@
 """Bikin grafik dari hasil eksperimen.
 
 Jalankan dari root repo (folder yang sama dengan pom.xml):
-    python3 plot.py                         # baca hasil.csv dan hasil_sintetis.csv (yang ada saja)
+    python3 plot.py                         # gabungkan hasil semua algoritma yang tersedia
     python3 plot.py a.csv b.csv             # atau tentukan file sendiri
 
 Output:
-    grafik/<tipe>_<metrik>.png   (X = jumlah task, Y = metrik, 1 garis per algoritma,
-                                  error bar = std antar run)
-    ringkasan_rata2.csv          (rata-rata dan std per dataset x algoritma)
+    results/plots/<tipe>_<metrik>.png       (X = jumlah task, Y = metrik, 1 garis per algoritma,
+                                            error bar = std antar run)
+    results/summary.csv                    (rata-rata dan std per dataset x algoritma)
 """
 import os
 import sys
@@ -18,8 +18,13 @@ matplotlib.use("Agg")  # tanpa GUI, aman di terminal
 import matplotlib.pyplot as plt
 import pandas as pd
 
-CSVS = sys.argv[1:] or ["hasil.csv", "hasil_sintetis.csv"]
-OUT = "grafik"
+CSVS = sys.argv[1:] or [
+    "results/raw/gocj.csv",
+    "results/raw/synthetic.csv",
+    "results/raw/cso_gocj.csv",
+    "results/raw/cso_synthetic.csv",
+]
+OUT = "results/plots"
 
 METRICS = {
     "makespan":   "Makespan (detik)",
@@ -33,12 +38,18 @@ DATASETS = [("gocj", "GoCJ"), ("sintetis", "Sintetis")]
 
 ada = [f for f in CSVS if os.path.exists(f)]
 if not ada:
-    sys.exit(f"Tidak ada file CSV ({', '.join(CSVS)}). Jalankan dulu java -jar target/soka-simulasi.jar --eksperimen / --sintetis")
+    sys.exit(f"Tidak ada file CSV ({', '.join(CSVS)}). Jalankan dulu java -jar target/soka-simulasi.jar --experiment-gocj / --experiment-synthetic")
 for f in CSVS:
     if f not in ada:
         print(f"[skip] {f} tidak ditemukan")
 
 df = pd.concat([pd.read_csv(f) for f in ada], ignore_index=True)
+# File CSO khusus dapat berisi baris yang juga sudah ada di CSV gabungan lama.
+# Gunakan satu baris per konfigurasi/run agar CSO tidak mendapat bobot ganda.
+df = df.drop_duplicates(
+    subset=["dataset_type", "size", "algorithm", "run"],
+    keep="last",
+)
 os.makedirs(OUT, exist_ok=True)
 
 ringkasan = []
@@ -73,5 +84,5 @@ for dtype, label in DATASETS:
         print(f"[OK] {path}")
 
 if ringkasan:
-    pd.concat(ringkasan).to_csv("ringkasan_rata2.csv", index=False, float_format="%.4f")
-    print("[OK] ringkasan_rata2.csv")
+    pd.concat(ringkasan).to_csv("results/summary.csv", index=False, float_format="%.4f")
+    print("[OK] results/summary.csv")

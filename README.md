@@ -1,11 +1,11 @@
-# Simulasi Cloud Task Scheduling Menggunakan Algoritma Heuristik Sufferage
+# Simulasi Cloud Task Scheduling Menggunakan CSO dan Heuristik Sufferage
 
 [![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://www.oracle.com/java/)
 [![Maven](https://img.shields.io/badge/Maven-3.8%2B-blue.svg)](https://maven.apache.org/)
 [![CloudSim Plus](https://img.shields.io/badge/CloudSim%20Plus-8.5.4-green.svg)](https://cloudsimplus.org/)
 [![License](https://img.shields.io/badge/License-Academic%20Use%20Only-lightgrey.svg)](#)
 
-Implementasi optimasi task scheduling pada infrastruktur cloud computing (*multi-datacenter*) menggunakan **Algoritma Heuristik Sufferage** berbasis **CloudSim Plus**, dibandingkan dengan **Round Robin** sebagai baseline.
+Implementasi optimasi task scheduling pada infrastruktur cloud computing (*multi-datacenter*) menggunakan **Cat Swarm Optimization (CSO)** dan **Algoritma Heuristik Sufferage** berbasis **CloudSim Plus**, dibandingkan dengan **Round Robin** sebagai baseline.
 
 ---
 
@@ -77,7 +77,7 @@ Simulasi merepresentasikan lingkungan *multi-cloud datacenter*:
 graph TD
     subgraph Client_Broker["Client/Broker"]
         Broker["DatacenterBrokerSimple"]
-        Scheduler["Sufferage / Round Robin Scheduler"]
+        Scheduler["CSO / Sufferage / Round Robin Scheduler"]
         Workload["GoCJ / Synthetic Workload"]
     end
 
@@ -162,6 +162,17 @@ flowchart TD
     RemoveTask --> CheckQueue
 ```
 
+## 🐱 Cara Kerja Cat Swarm Optimization
+
+`CatSwarmScheduler` menggunakan representasi diskrit untuk task scheduling:
+posisi ke-i pada seekor cat menyimpan indeks VM untuk cloudlet ke-i. Fitness
+setiap posisi adalah estimasi makespan dengan memperhitungkan slot PE pada VM.
+Populasi diinisialisasi dengan solusi Sufferage, Round Robin, dan posisi acak.
+Pada setiap iterasi, sebagian cat menjalankan **seeking mode** untuk mencoba
+perubahan assignment lokal, sedangkan cat lain menjalankan **tracing mode**
+untuk mendekati global best. Seed pseudo-acak diturunkan dari workload,
+sehingga assignment CSO dapat direproduksi untuk dataset yang sama.
+
 ---
 
 ## 📂 Struktur Direktori Proyek
@@ -171,20 +182,29 @@ flowchart TD
 ├── pom.xml                               # Konfigurasi dependensi Maven & Shade plugin
 ├── README.md
 ├── plot.py                               # Pembuat grafik dari hasil eksperimen
-├── hasil.csv                             # Output mode --eksperimen (data mentah per run)
-├── hasil_sintetis.csv                    # Output mode --sintetis (data mentah per run)
-├── ringkasan_rata2.csv                   # Rata-rata & std per dataset x algoritma
-├── grafik/                               # Grafik PNG (dibuat oleh plot.py)
+├── results/
+│   ├── raw/                              # Data mentah per run
+│   │   ├── gocj.csv                      # Output --experiment-gocj
+│   │   └── synthetic.csv                 # Output --experiment-synthetic
+│   ├── plots/                            # Grafik PNG (dibuat oleh plot.py)
+│   └── summary.csv                       # Rata-rata & std per dataset x algoritma
 ├── src
 │   └── main
 │       ├── java
 │       │   └── soka
-│       │       ├── Kelompok7Simulation.java   # Main class: orkestrasi simulasi & mode eksperimen
-│       │       ├── GoCJLoader.java           # Loader & generator sintetis dataset GoCJ
-│       │       ├── MetricsCalculator.java    # Cetak ringkasan metrik (mode --demo2)
-│       │       └── scheduler
-│       │           ├── SufferageScheduler.java    # Algoritma Heuristik Sufferage
-│       │           └── RoundRobinScheduler.java   # Baseline Scheduler pembanding
+│       │           ├── runner
+│       │           │   └── SimulationRunner.java     # Entry point dan orkestrasi simulasi
+│       │           ├── data
+│       │           │   └── GoCJLoader.java           # Loader & generator sintetis dataset GoCJ
+│       │           ├── metrics
+│       │           │   └── MetricsCalculator.java    # Perhitungan dan ringkasan metrik
+│       │           └── scheduler
+│       │               ├── metaheuristic
+│       │               │   └── CatSwarmScheduler.java    # Cat Swarm Optimization
+│       │               ├── heuristic
+│       │               │   └── SufferageScheduler.java   # Algoritma heuristik Sufferage
+│       │               └── baseline
+│       │                   └── RoundRobinScheduler.java  # Baseline Scheduler pembanding
 │       └── resources
 │           └── Dataset_GoCJ/                 # GoCJ_Dataset_100.txt ... GoCJ_Dataset_1000.txt
 └── target                                    # Hasil kompilasi (tidak di-commit)
@@ -196,18 +216,19 @@ Bagian ini dapat dipakai saat demo untuk menunjukkan hubungan proposal dan imple
 
 | Bagian proposal | Implementasi |
 |:---|:---|
-| Dua datacenter | `Kelompok7Simulation.buatDatacenter()` dipanggil untuk `DC1` dan `DC2` di `jalankan()`. |
+| Dua datacenter | `SimulationRunner.buatDatacenter()` dipanggil untuk `DC1` dan `DC2` di `jalankan()`. |
 | Lima host per datacenter, total sepuluh host | Parameter `5` pada pemanggilan `buatDatacenter()`; host dibuat di dalam method tersebut. |
-| Host heterogen tipe A/B/C | `Kelompok7Simulation.buatHost()` mengatur core, MIPS, RAM, bandwidth, dan storage. |
+| Host heterogen tipe A/B/C | `SimulationRunner.buatHost()` mengatur core, MIPS, RAM, bandwidth, dan storage. |
 | Dua puluh VM, sepuluh VM per datacenter | Dua pemanggilan `buatVmHeterogen(10)` di `jalankan()`. VM 0-9 dipetakan ke DC1 dan VM 10-19 ke DC2 lewat `setDatacenterMapper`. |
-| VM kecil, sedang, dan besar | `Kelompok7Simulation.buatVmHeterogen()` mengatur MIPS, PE, dan RAM untuk tiga tipe VM. |
+| VM kecil, sedang, dan besar | `SimulationRunner.buatVmHeterogen()` mengatur MIPS, PE, dan RAM untuk tiga tipe VM. |
 | Dataset GoCJ 100 sampai 1000 cloudlet | Loop ukuran dataset di `eksperimenGoCJ()`; pembacaan file di `buatCloudlet()`. File ada di `src/main/resources/Dataset_GoCJ/`. |
 | Dataset sintetis 1000 sampai 10000 task | Loop ukuran dan run di `eksperimenSintetis()`; nilai MI dibuat oleh `GoCJLoader.generateSynthetic()` dengan proporsi `PROPORSI`. |
 | Task independent | Setiap baris dataset dibuat menjadi satu `CloudletSimple` tanpa dependency/DAG di `buatCloudlet()`. |
-| Sufferage heuristic | `SufferageScheduler.schedule()` di `src/main/java/soka/scheduler/SufferageScheduler.java`. |
-| Round Robin sebagai baseline | `RoundRobinScheduler.schedule()` di `src/main/java/soka/scheduler/RoundRobinScheduler.java`. |
+| Cat Swarm Optimization | `CatSwarmScheduler.schedule()` di `src/main/java/soka/scheduler/metaheuristic/CatSwarmScheduler.java`. Posisi cat adalah assignment cloudlet ke VM; fitness memakai estimasi makespan berbasis slot PE. |
+| Sufferage heuristic | `SufferageScheduler.schedule()` di `src/main/java/soka/scheduler/heuristic/SufferageScheduler.java`. |
+| Round Robin sebagai baseline | `RoundRobinScheduler.schedule()` di `src/main/java/soka/scheduler/baseline/RoundRobinScheduler.java`. |
 | Broker menempatkan cloudlet ke VM | `broker.bindCloudletToVm()` di `jalankan()`. |
-| Makespan, DI, RU, throughput, response time | `MetricsCalculator.cetakRingkasan()` (output konsol) dan `Kelompok7Simulation.hitungMetrik()` (output CSV), dengan rumus yang sama. |
+| Makespan, DI, RU, throughput, response time | `MetricsCalculator.cetakRingkasan()` (output konsol) dan `SimulationRunner.hitungMetrik()` (output CSV), dengan rumus yang sama. |
 | Semua cloudlet harus selesai | `jalankan()` melempar exception bila jumlah cloudlet selesai tidak sama dengan jumlah cloudlet yang disubmit. |
 | Provisioning statis dan tanpa migrasi | Host dan VM dibuat sebelum simulasi dimulai; tidak ada autoscaling atau migrasi VM. |
 
@@ -216,7 +237,7 @@ Bagian ini dapat dipakai saat demo untuk menunjukkan hubungan proposal dan imple
 - Prioritas atau deadline cloudlet belum dimodelkan. Scheduler hanya memakai panjang cloudlet, MIPS VM, PE, dan ready time.
 - Bandwidth dan storage VM sama untuk semua VM; variasi hanya pada MIPS, PE, dan RAM.
 - Yang diimplementasikan adalah Sufferage heuristic sebagai dasar pendekatan LBMM, bukan seluruh variasi LBMM.
-- Sufferage dan Round Robin bersifat **deterministik**: untuk dataset yang sama, tiga kali run menghasilkan metrik kualitas yang identik (std = 0). Hanya `sched_ms` yang bervariasi.
+- CSO memakai seed yang diturunkan dari dataset sehingga hasil assignment dapat direproduksi; ketiga scheduler tetap dapat memiliki `sched_ms` berbeda antar run karena pengukuran wall-clock.
 - Dataset sintetis 1000 sampai 10000 task terintegrasi dengan seed berbeda per run.
 
 ---
@@ -239,9 +260,9 @@ mvn clean package -DskipTests
 ```
 Hasil build berupa fat JAR `target/soka-simulasi.jar`. Build ulang setiap kali kode berubah.
 
-### 2. Mode demo2 (GoCJ 500 dan 1000, output detail)
+### 2. Mode demo (GoCJ 500 dan 1000, output detail)
 ```bash
-java -jar target/soka-simulasi.jar --demo2
+java -jar target/soka-simulasi.jar --demo
 ```
 Mode ini menampilkan konfigurasi infrastruktur terlebih dahulu: 2 datacenter,
 5 host per datacenter, tipe host rendah/sedang/tinggi, serta 20 VM dan
@@ -249,45 +270,68 @@ spesifikasinya. Setelah CloudSim melakukan provisioning, mode ini juga
 menampilkan host aktual untuk setiap VM. Setelah itu simulasi GoCJ 500 dan
 1000 dijalankan.
 
-### 3. Mode eksperimen (GoCJ 100 sampai 1000, 3 run per konfigurasi)
+### 3. Mode CSO saja
+
+Untuk menguji CSO tanpa mengulang Sufferage dan Round Robin:
+
 ```bash
-java -jar target/soka-simulasi.jar --eksperimen
+# Demo detail GoCJ 500 dan 1000
+java -jar target/soka-simulasi.jar --cso-demo
+
+# Eksperimen GoCJ 100 sampai 1000, 3 run
+java -jar target/soka-simulasi.jar --experiment-cso-gocj
+
+# Eksperimen sintetis 1000 sampai 10000, 3 run
+java -jar target/soka-simulasi.jar --experiment-cso-synthetic
 ```
-Menjalankan 10 dataset x 2 algoritma x 3 run (60 simulasi) dan menulis `hasil.csv` dengan kolom:
+
+Hasil CSO disimpan terpisah agar tidak menimpa hasil perbandingan:
+
+- `results/raw/cso_gocj.csv`
+- `results/raw/cso_synthetic.csv`
+
+### 4. Mode eksperimen GoCJ (100 sampai 1000, 3 run per konfigurasi)
+```bash
+java -jar target/soka-simulasi.jar --experiment-gocj
+```
+Menjalankan 10 dataset x 3 algoritma x 3 run (90 simulasi) dan menulis `results/raw/gocj.csv` dengan kolom:
 `dataset_type,size,algorithm,run,makespan,di,ru,throughput,art,sched_ms`
 
-### 4. Mode eksperimen dataset sintetis (1000 sampai 10000 task)
+### 5. Mode eksperimen dataset sintetis (1000 sampai 10000 task)
 ```bash
-java -jar target/soka-simulasi.jar --sintetis
+java -jar target/soka-simulasi.jar --experiment-synthetic
 ```
 Menjalankan ukuran 1000, 2000, ..., 10000 task, masing-masing 3 run untuk
-Sufferage dan Round Robin, lalu menulis `hasil_sintetis.csv`. Seed dibedakan untuk
-setiap pasangan `(ukuran, run)`, sedangkan kedua algoritma memakai dataset yang
+CSO, Sufferage, dan Round Robin, lalu menulis `results/raw/synthetic.csv`. Seed dibedakan untuk
+setiap pasangan `(ukuran, run)`, sedangkan ketiga algoritma memakai dataset yang
 sama pada run tersebut. Proporsi kategori task diatur pada konstanta `PROPORSI`
-di `Kelompok7Simulation.java`.
+di `SimulationRunner.java`.
 
-### 5. Buat grafik
+### 6. Buat grafik
 ```bash
 python3 plot.py
 ```
-Perintah ini membaca `hasil.csv` dan `hasil_sintetis.csv` jika tersedia. Outputnya:
+Perintah ini menggabungkan `results/raw/gocj.csv`, `results/raw/synthetic.csv`,
+`results/raw/cso_gocj.csv`, dan `results/raw/cso_synthetic.csv` jika tersedia.
+Baris duplikat CSO pada CSV gabungan lama dihapus berdasarkan dataset, ukuran,
+algoritma, dan run. Outputnya:
 
-- `grafik/gocj_<metrik>.png` untuk GoCJ 100 sampai 1000 task.
-- `grafik/sintetis_<metrik>.png` untuk sintetis 1000 sampai 10000 task.
-- `ringkasan_rata2.csv`, berisi rata-rata dan standar deviasi setiap metrik per ukuran dataset dan algoritma.
+- `results/plots/gocj_<metrik>.png` untuk GoCJ 100 sampai 1000 task.
+- `results/plots/sintetis_<metrik>.png` untuk sintetis 1000 sampai 10000 task.
+- `results/summary.csv`, berisi rata-rata dan standar deviasi setiap metrik per ukuran dataset dan algoritma.
 
 Sumbu X adalah jumlah task, sumbu Y adalah metrik, garis dibedakan berdasarkan algoritma,
 dan error bar adalah standar deviasi antar tiga run. Pada GoCJ, dataset yang sama diulang
 sehingga metrik kualitas dapat memiliki standar deviasi nol; pada sintetis, setiap run
 menggunakan dataset berbeda sehingga error bar menunjukkan variasi antar dataset.
 
-Jalankan semua perintah dari root repo, karena dataset dibaca dari resource dan `hasil.csv` ditulis ke folder kerja saat ini.
+Jalankan semua perintah dari root repo, karena dataset dibaca dari resource dan hasil eksperimen ditulis ke `results/`.
 
 ---
 
 ## 📊 Hasil Simulasi
 
-### Contoh output mode `--demo2` (GoCJ 500)
+### Contoh output mode `--demo` (GoCJ 500)
 
 ```text
 =============== KONFIGURASI INFRASTRUKTUR ===============
@@ -323,20 +367,24 @@ Jumlah VM aktif dipakai: 20
 =================================================
 ```
 
-### Perbandingan Sufferage vs Round Robin
+### Perbandingan CSO, Sufferage, dan Round Robin
 
 | Dataset | Algoritma | Makespan (s) | DI | RU (%) | Throughput (task/s) | ART (s) |
 |:--|:--|--:|--:|--:|--:|--:|
+| GoCJ 500 | Cat Swarm Optimization | 579.88 | 1.6074 | 81.10 | 0.8623 | 253.72 |
 | GoCJ 500 | Sufferage | 602.43 | 1.4319 | 77.36 | 0.8300 | 250.70 |
 | GoCJ 500 | Round Robin | 2005.45 | 1.0847 | 29.06 | 0.2493 | 460.94 |
+| GoCJ 1000 | Cat Swarm Optimization | 1085.77 | 1.4394 | 86.13 | 0.9210 | 478.69 |
 | GoCJ 1000 | Sufferage | 1095.35 | 1.3944 | 85.10 | 0.9130 | 476.29 |
 | GoCJ 1000 | Round Robin | 4608.44 | 1.1551 | 26.36 | 0.2170 | 948.09 |
 
-Data lengkap GoCJ ada di `hasil.csv`; data sintetis ada di `hasil_sintetis.csv`.
-Ringkasan gabungan kedua eksperimen ada di `ringkasan_rata2.csv`.
+Data lengkap GoCJ ada di `results/raw/gocj.csv`; data sintetis ada di
+`results/raw/synthetic.csv`. Ringkasan gabungan kedua eksperimen ada di
+`results/summary.csv`.
 
 **Pengamatan**
-- Sufferage menurunkan makespan sekitar 70% (500 task) dan 76% (1000 task) dibanding Round Robin, dengan RU naik dari kisaran 26-29% menjadi 77-85%.
+- CSO menghasilkan makespan terendah pada demo GoCJ: 579.88 detik untuk 500 task dan 1085.77 detik untuk 1000 task. Dibanding Sufferage, makespan turun sekitar 3.7% dan 0.9%.
+- CSO dan Sufferage sama-sama menurunkan makespan secara signifikan dibanding Round Robin, dengan RU dan throughput yang jauh lebih tinggi.
 - DI Sufferage lebih tinggi daripada Round Robin. Sufferage meminimalkan completion time sehingga beban menumpuk di VM cepat, sedangkan Round Robin membagi jumlah task rata tetapi lambat. Ini sejalan dengan trade-off yang dibahas pada proposal (bagian 3.3): algoritma yang hanya mengoptimasi makespan cenderung menghasilkan DI tinggi.
 - RU yang lebih tinggi tidak otomatis berarti algoritma selalu lebih baik. RU harus dibaca bersama makespan, throughput, ART, dan DI. Pada hasil ini Sufferage lebih baik secara waktu dan throughput, dengan trade-off DI yang lebih tinggi.
 
@@ -344,37 +392,37 @@ Ringkasan gabungan kedua eksperimen ada di `ringkasan_rata2.csv`.
 
 | Makespan | Degree of Imbalance |
 |:--:|:--:|
-| ![Makespan](grafik/gocj_makespan.png) | ![DI](grafik/gocj_di.png) |
+| ![Makespan](./results/plots/gocj_makespan.png) | ![DI](./results/plots/gocj_di.png) |
 
 | Resource Utilization | Throughput |
 |:--:|:--:|
-| ![RU](grafik/gocj_ru.png) | ![Throughput](grafik/gocj_throughput.png) |
+| ![RU](./results/plots/gocj_ru.png) | ![Throughput](./results/plots/gocj_throughput.png) |
 
 | Avg. Response Time | Waktu Scheduling |
 |:--:|:--:|
-| ![ART](grafik/gocj_art.png) | ![Sched](grafik/gocj_sched_ms.png) |
+| ![ART](./results/plots/gocj_art.png) | ![Sched](./results/plots/gocj_sched_ms.png) |
 
 ### Grafik perbandingan (dataset sintetis 1000 - 10000)
 
 | Makespan | Degree of Imbalance |
 |:--:|:--:|
-| ![Makespan sintetis](grafik/sintetis_makespan.png) | ![DI sintetis](grafik/sintetis_di.png) |
+| ![Makespan sintetis](./results/plots/sintetis_makespan.png) | ![DI sintetis](./results/plots/sintetis_di.png) |
 
 | Resource Utilization | Throughput |
 |:--:|:--:|
-| ![RU sintetis](grafik/sintetis_ru.png) | ![Throughput sintetis](grafik/sintetis_throughput.png) |
+| ![RU sintetis](./results/plots/sintetis_ru.png) | ![Throughput sintetis](./results/plots/sintetis_throughput.png) |
 
 | Avg. Response Time | Waktu Scheduling |
 |:--:|:--:|
-| ![ART sintetis](grafik/sintetis_art.png) | ![Sched sintetis](grafik/sintetis_sched_ms.png) |
+| ![ART sintetis](./results/plots/sintetis_art.png) | ![Sched sintetis](./results/plots/sintetis_sched_ms.png) |
 
 ---
 
 ## 🔮 Roadmap Pengembangan Selanjutnya
 
-- [x] **Baseline Scheduler**: *Round Robin* ([RoundRobinScheduler.java](src/main/java/soka/scheduler/RoundRobinScheduler.java)).
-- [x] **Heuristic Scheduler**: *Sufferage (LBMM Foundation)* ([SufferageScheduler.java](src/main/java/soka/scheduler/SufferageScheduler.java)).
-- [x] **Eksperimen GoCJ 100-1000**: 3 run per dataset, ekspor `hasil.csv`.
+- [x] **Baseline Scheduler**: *Round Robin* ([RoundRobinScheduler.java](src/main/java/soka/scheduler/baseline/RoundRobinScheduler.java)).
+- [x] **Heuristic Scheduler**: *Sufferage (LBMM Foundation)* ([SufferageScheduler.java](src/main/java/soka/scheduler/heuristic/SufferageScheduler.java)).
+- [x] **Eksperimen GoCJ 100-1000**: 3 run per dataset, ekspor `results/raw/gocj.csv`.
 - [x] **Visualisasi**: grafik per metrik (X = jumlah task) lewat `plot.py`.
 - [x] **Dataset sintetis 1000-10000 task** dengan proporsi kategori yang ditentukan sendiri, seed berbeda per run.
 - [ ] **Metaheuristik Bio-Inspired**:
