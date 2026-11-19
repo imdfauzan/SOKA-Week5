@@ -43,6 +43,7 @@ import java.util.function.BiFunction;
  *
  * --demo                    : GoCJ 500 & 1000, cetak detail dan konfigurasi semua algoritma
  * --cso-demo                : GoCJ 500 & 1000, hanya Cat Swarm Optimization
+ * --run <dataset>           : satu dataset pilihan, ketiga algoritma (dipakai halaman HTML)
  * --experiment-gocj         : GoCJ 100..1000, 3 run -> results/raw/gocj.csv
  * --experiment-synthetic    : sintetis 1000..10000, 3 run -> results/raw/synthetic.csv
  * --experiment-cso-gocj     : GoCJ 100..1000, hanya CSO -> results/raw/cso_gocj.csv
@@ -80,6 +81,8 @@ public class SimulationRunner {
                 case "--experiment-cso-gocj" -> runGoCJExperiment(cso, "results/raw/cso_gocj.csv");
                 case "--experiment-cso-synthetic" -> runSyntheticExperiment(cso, "results/raw/cso_synthetic.csv");
                 case "--cso-demo" -> demo(cso);
+                case "--run" -> runSatuDataset(
+                        args.length > 1 ? args[1] : "GoCJ_Dataset_1000.txt", semuaAlgoritma);
                 case "--demo", "--demo2", "" -> demo(semuaAlgoritma);
                 default -> throw new IllegalArgumentException(
                         "Mode tidak dikenal: " + mode
@@ -95,6 +98,17 @@ public class SimulationRunner {
                 List<Long> lengths = bacaGoCJ(dataset);
                 for (Algoritma a : algoritma) jalankan(a, dataset, lengths, true);
             }
+        }
+
+    /**
+     * Mode untuk halaman HTML: satu dataset pilihan pengguna, ketiga algoritma,
+     * output detail seperti {@code --demo}. Dipanggil oleh tools/cloudsim-server.js.
+     */
+    private static void runSatuDataset(String dataset, List<Algoritma> algoritma) {
+            cetakKonfigurasiDemo();
+            System.out.println("\n================ DATASET: " + dataset + " ================");
+            List<Long> lengths = bacaGoCJ(dataset);
+            for (Algoritma a : algoritma) jalankan(a, dataset, lengths, true);
         }
 
     private static void cetakKonfigurasiDemo() {

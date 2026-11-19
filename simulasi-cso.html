@@ -1,0 +1,1954 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOKA · Cat Swarm Optimization pada Cloud Task Scheduling</title>
+<style>
+  :root{
+    --bg:#070b14; --bg-soft:#0a1120; --panel:#0e1727; --panel-2:#122034;
+    --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.06);
+    --txt:#e9effb; --muted:#95a6c2; --muted-2:#6f8099;
+    --cyan:#3ae2cf; --violet:#8d7dff; --amber:#ffbe5c; --pink:#ff7aa2; --green:#4fe39b; --red:#ff6f8d;
+    --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, "SF Mono", monospace;
+    --radius:16px;
+    --shadow: 0 18px 50px -22px rgba(0,0,0,.85);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--txt);
+    font:15px/1.65 ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(760px 420px at 12% -8%, rgba(58,226,207,.13), transparent 62%),
+      radial-gradient(700px 460px at 88% 4%, rgba(141,125,255,.14), transparent 66%),
+      radial-gradient(900px 520px at 50% 108%, rgba(255,190,92,.06), transparent 70%),
+      linear-gradient(180deg,#070b14 0%,#080d18 45%,#070b14 100%);
+  }
+  a{color:var(--cyan); text-decoration:none}
+  a:hover{text-decoration:underline}
+  code,pre,.mono{font-family:var(--mono)}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 22px}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:40; backdrop-filter:blur(14px);
+    background:rgba(7,11,20,.78); border-bottom:1px solid var(--line-2);
+  }
+  .topbar .wrap{display:flex; align-items:center; gap:18px; height:60px}
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.2px}
+  .brand .dot{
+    width:26px;height:26px;border-radius:9px;
+    background:conic-gradient(from 210deg,var(--cyan),var(--violet),var(--amber),var(--cyan));
+    box-shadow:0 0 22px rgba(58,226,207,.35);
+  }
+  .brand small{display:block; font-size:10.5px; font-weight:600; letter-spacing:1.4px; color:var(--muted-2); text-transform:uppercase}
+  .nav{display:flex; gap:4px; margin-left:auto; overflow:auto; scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav a{
+    padding:7px 12px; border-radius:99px; font-size:13px; color:var(--muted);
+    border:1px solid transparent; white-space:nowrap; text-decoration:none; transition:.18s;
+  }
+  .nav a:hover{color:var(--txt); background:rgba(255,255,255,.05); text-decoration:none}
+  .nav a.active{color:#04140f; background:linear-gradient(120deg,var(--cyan),#7ef0e2); font-weight:650}
+
+  /* ---------- hero ---------- */
+  .hero{padding:62px 0 30px}
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px; font-size:11.5px; font-weight:700;
+    letter-spacing:1.7px; text-transform:uppercase; color:var(--cyan);
+    background:rgba(58,226,207,.08); border:1px solid rgba(58,226,207,.22);
+    padding:6px 12px; border-radius:99px;
+  }
+  h1{font-size:clamp(30px,4.6vw,50px); line-height:1.12; margin:20px 0 14px; letter-spacing:-.8px}
+  h1 .grad{background:linear-gradient(100deg,var(--cyan),var(--violet) 55%,var(--amber)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .lead{color:var(--muted); font-size:17px; max-width:760px; margin:0 0 26px}
+  .hero-cta{display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:30px}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px}
+  .chip{
+    font-size:12px; color:var(--muted); border:1px solid var(--line);
+    background:rgba(255,255,255,.03); padding:5px 11px; border-radius:99px;
+  }
+  .chip b{color:var(--txt); font-weight:650}
+
+  /* ---------- buttons ---------- */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:9px;
+    font:inherit; font-weight:650; font-size:14px; cursor:pointer;
+    border-radius:12px; padding:12px 20px; border:1px solid transparent;
+    transition:transform .15s, filter .15s, background .15s, border-color .15s;
+    text-decoration:none; white-space:nowrap;
+  }
+  .btn.primary{
+    background:linear-gradient(115deg,var(--cyan),#6ee7d8 40%,var(--violet));
+    color:#04140f; box-shadow:0 14px 34px -14px rgba(58,226,207,.75);
+  }
+  .btn.primary:hover{transform:translateY(-1px); filter:brightness(1.06); text-decoration:none}
+  .btn.ghost{background:rgba(255,255,255,.035); border-color:var(--line); color:var(--txt)}
+  .btn.ghost:hover{background:rgba(255,255,255,.07); text-decoration:none}
+  .btn:disabled{opacity:.55; cursor:not-allowed; transform:none!important}
+  .btn.sm{padding:8px 13px; font-size:12.5px; border-radius:9px}
+
+  /* ---------- sections ---------- */
+  section{padding:58px 0; border-top:1px solid var(--line-2)}
+  .sec-head{max-width:820px; margin-bottom:30px}
+  .sec-head .kicker{
+    font-size:11.5px; letter-spacing:1.8px; text-transform:uppercase;
+    color:var(--violet); font-weight:700; margin-bottom:8px; display:block;
+  }
+  h2{font-size:clamp(23px,3vw,32px); margin:0 0 12px; letter-spacing:-.5px}
+  .sec-head p{color:var(--muted); margin:0; font-size:15.5px}
+
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:22px; box-shadow:var(--shadow);
+  }
+  .card h3{margin:0 0 10px; font-size:16.5px; letter-spacing:-.2px}
+  .card p{margin:0; color:var(--muted); font-size:14.2px}
+  .grid{display:grid; gap:16px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .num{
+    font-family:var(--mono); font-size:11px; color:var(--cyan);
+    border:1px solid rgba(58,226,207,.3); background:rgba(58,226,207,.08);
+    width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-weight:700;
+    margin-bottom:12px;
+  }
+
+  /* ---------- position array ---------- */
+  .posviz{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; font-family:var(--mono); font-size:11.5px}
+  .cell{
+    width:34px; height:38px; border-radius:8px; display:grid; place-items:center;
+    border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--muted);
+    position:relative; padding-top:9px;
+  }
+  .cell::before{
+    content:attr(data-i); position:absolute; top:2px; left:0; right:0; text-align:center;
+    font-size:8.5px; color:var(--muted-2);
+  }
+  .cell.v0{background:rgba(58,226,207,.16); border-color:rgba(58,226,207,.45); color:#bff7ef}
+  .cell.v1{background:rgba(141,125,255,.17); border-color:rgba(141,125,255,.45); color:#d8d2ff}
+  .cell.v2{background:rgba(255,190,92,.15); border-color:rgba(255,190,92,.42); color:#ffe2b0}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; font-size:12px; color:var(--muted)}
+  .legend i{display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:6px; vertical-align:1px}
+
+  .flow{display:grid; gap:10px; counter-reset:s; margin-top:4px}
+  .flow .step{
+    display:grid; grid-template-columns:30px 1fr; gap:12px; align-items:start;
+    padding:12px 14px; border:1px solid var(--line); border-radius:12px;
+    background:rgba(255,255,255,.025);
+  }
+  .flow .step::before{
+    counter-increment:s; content:counter(s); font-family:var(--mono); font-size:12px; font-weight:700;
+    color:#04140f; background:linear-gradient(130deg,var(--cyan),var(--violet));
+    width:24px;height:24px;border-radius:7px; display:grid; place-items:center;
+  }
+  .flow b{display:block; font-size:14px; margin-bottom:2px}
+  .flow span{color:var(--muted); font-size:13.2px}
+
+  .math{
+    font-family:var(--mono); font-size:13px; line-height:1.9;
+    background:#050a12; border:1px solid var(--line); border-radius:12px; padding:14px 16px; overflow:auto;
+  }
+  .math .k{color:var(--cyan)} .math .v{color:var(--amber)}
+
+  /* ---------- code ---------- */
+  .tabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px}
+  .tab{
+    font:inherit; font-size:12.8px; font-weight:600; cursor:pointer; color:var(--muted);
+    background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:99px; padding:8px 14px;
+    transition:.16s;
+  }
+  .tab:hover{color:var(--txt); background:rgba(255,255,255,.06)}
+  .tab.on{color:#04140f; background:linear-gradient(120deg,var(--cyan),#8ef2e6); border-color:transparent}
+  .pane{display:none}
+  .pane.on{display:block; animation:fade .25s ease}
+  @keyframes fade{from{opacity:0; transform:translateY(5px)} to{opacity:1; transform:none}}
+  .codebox{border:1px solid var(--line); border-radius:14px; overflow:hidden; background:#050a12}
+  .codebox .head{
+    display:flex; align-items:center; gap:8px; padding:9px 14px; font-family:var(--mono); font-size:11.5px;
+    color:var(--muted-2); border-bottom:1px solid var(--line-2); background:rgba(255,255,255,.02);
+  }
+  .codebox .head .lamp{width:8px;height:8px;border-radius:50%;background:#2a3a52}
+  pre.code{
+    margin:0; padding:16px 18px; font-size:12.6px; line-height:1.75; overflow:auto; color:#cfe0f5;
+    tab-size:4;
+  }
+  .kw{color:#ff9ec4} .st{color:#a8e6a3} .cm{color:#5f7a99; font-style:italic} .nu{color:#ffcf8b}
+  .about{display:grid; gap:14px; margin-top:16px}
+  .note{
+    border-left:3px solid var(--cyan); background:rgba(58,226,207,.055);
+    padding:12px 16px; border-radius:0 10px 10px 0; color:var(--muted); font-size:13.6px;
+  }
+  .note b{color:var(--txt)}
+  .note.warn{border-left-color:var(--amber); background:rgba(255,190,92,.06)}
+  ul.tick{margin:8px 0 0; padding-left:0; list-style:none; display:grid; gap:7px}
+  ul.tick li{position:relative; padding-left:22px; color:var(--muted); font-size:13.8px}
+  ul.tick li::before{content:"▸"; position:absolute; left:4px; color:var(--cyan)}
+  ul.tick li b{color:var(--txt)}
+
+  /* ---------- topology ---------- */
+  .topo{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px}
+  .dc{
+    border:1px solid var(--line); border-radius:14px; padding:16px;
+    background:linear-gradient(180deg, rgba(58,226,207,.05), rgba(255,255,255,.01));
+  }
+  .dc h4{margin:0 0 4px; font-size:13.5px; letter-spacing:.4px}
+  .dc .sub{font-size:11.5px; color:var(--muted-2); font-family:var(--mono); margin-bottom:12px}
+  .hosts{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px}
+  .host{
+    border:1px solid var(--line-2); border-radius:9px; padding:8px 10px; font-size:11px;
+    background:rgba(255,255,255,.02); color:var(--muted); font-family:var(--mono);
+  }
+  .host b{display:block; color:var(--txt); font-size:11.5px; margin-bottom:1px}
+  .vmrow{display:flex; flex-wrap:wrap; gap:5px}
+  .vmchip{
+    font-family:var(--mono); font-size:10.5px; padding:4px 7px; border-radius:6px;
+    border:1px solid rgba(58,226,207,.28); background:rgba(58,226,207,.1); color:#bff7ef;
+  }
+  .vmchip.b{border-color:rgba(141,125,255,.3); background:rgba(141,125,255,.11); color:#d8d2ff}
+  .vmchip.c{border-color:rgba(255,190,92,.28); background:rgba(255,190,92,.1); color:#ffe2b0}
+  .broker{
+    margin-top:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    border:1px dashed rgba(141,125,255,.4); background:rgba(141,125,255,.06);
+    border-radius:12px; padding:12px 16px; font-size:12.5px; color:var(--muted);
+  }
+  .broker b{color:var(--txt); font-family:var(--mono); font-size:12px}
+
+  /* ---------- tables ---------- */
+  .tablewrap{overflow:auto; border:1px solid var(--line); border-radius:14px}
+  table{width:100%; border-collapse:collapse; font-size:13px; min-width:560px}
+  th,td{padding:10px 13px; text-align:right; white-space:nowrap}
+  th{
+    font-size:11px; letter-spacing:.7px; text-transform:uppercase; color:var(--muted-2);
+    background:rgba(255,255,255,.03); border-bottom:1px solid var(--line); font-weight:700;
+  }
+  td{border-bottom:1px solid var(--line-2); font-family:var(--mono); color:#d5e2f4}
+  th:first-child, td:first-child{text-align:left}
+  tbody tr:hover td{background:rgba(255,255,255,.025)}
+  td.best{color:var(--green); font-weight:700}
+  .unit{color:var(--muted-2); font-size:11px}
+
+  /* ---------- simulation ---------- */
+  .simwrap{display:grid; grid-template-columns:334px minmax(0,1fr); gap:18px; align-items:start}
+  .controls{position:sticky; top:76px; display:grid; gap:16px}
+  .field{display:grid; gap:7px}
+  .field > label{font-size:11.5px; letter-spacing:.9px; text-transform:uppercase; color:var(--muted-2); font-weight:700}
+  select,input[type=number]{
+    width:100%; font:inherit; font-size:13.5px; color:var(--txt); background:#0a1220;
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px; outline:none;
+  }
+  select:focus{border-color:rgba(58,226,207,.6); box-shadow:0 0 0 3px rgba(58,226,207,.12)}
+  .checks{display:grid; gap:7px}
+  .check{
+    display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid var(--line);
+    border-radius:10px; background:rgba(255,255,255,.025); cursor:pointer; font-size:13.2px;
+    transition:.15s;
+  }
+  .check:hover{background:rgba(255,255,255,.05)}
+  .check input{accent-color:#3ae2cf; width:15px; height:15px; cursor:pointer}
+  .check .tag{
+    margin-left:auto; font-family:var(--mono); font-size:10px; padding:2px 6px; border-radius:5px;
+    background:rgba(141,125,255,.15); color:#cfc8ff;
+  }
+  details.adv{border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:rgba(255,255,255,.02)}
+  details.adv summary{cursor:pointer; font-size:12.5px; font-weight:650; color:var(--muted)}
+  details.adv[open] summary{margin-bottom:14px}
+  .slider{display:grid; gap:4px; margin-bottom:12px}
+  .slider .row{display:flex; justify-content:space-between; font-size:12px; color:var(--muted)}
+  .slider .row output{font-family:var(--mono); color:var(--cyan)}
+  input[type=range]{width:100%; accent-color:#3ae2cf}
+  .status{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted);
+    border:1px solid var(--line); border-radius:10px; padding:9px 12px; background:rgba(255,255,255,.02);
+  }
+  .status .led{width:8px;height:8px;border-radius:50%;background:var(--green); box-shadow:0 0 10px var(--green)}
+  .status.run .led{background:var(--amber); box-shadow:0 0 10px var(--amber); animation:pulse 1s infinite}
+  .status.done .led{background:var(--cyan); box-shadow:0 0 10px var(--cyan)}
+  @keyframes pulse{50%{opacity:.35}}
+
+  .engine{
+    display:flex; align-items:center; gap:8px; margin-top:12px; padding:8px 11px;
+    border:1px dashed var(--line); border-radius:10px;
+    font-family:var(--mono); font-size:11.6px; color:var(--muted-2);
+  }
+  .engine .led{width:7px;height:7px;border-radius:50%;background:var(--muted-2); flex:0 0 auto}
+  .engine.java{border-style:solid;border-color:rgba(79,227,155,.4);background:rgba(79,227,155,.07);color:#bdf7d8}
+  .engine.java .led{background:var(--green); box-shadow:0 0 9px var(--green)}
+  .engine.web{border-style:solid;border-color:rgba(141,125,255,.32);background:rgba(141,125,255,.06);color:#d8d2ff}
+  .engine.web .led{background:var(--violet); box-shadow:0 0 9px var(--violet)}
+
+  .out{display:grid; gap:16px; min-width:0}
+  .kpis{display:grid; grid-template-columns:repeat(6,1fr); gap:10px}
+  .kpi{
+    border:1px solid var(--line); border-radius:12px; padding:12px 13px;
+    background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
+  }
+  .kpi .lbl{font-size:10px; letter-spacing:.9px; text-transform:uppercase; color:var(--muted-2); font-weight:700}
+  .kpi .val{font-family:var(--mono); font-size:19px; margin-top:5px; color:var(--txt); letter-spacing:-.4px}
+  .kpi .val small{font-size:10.5px; color:var(--muted-2); margin-left:3px}
+  .kpi.hl{border-color:rgba(58,226,207,.42); background:linear-gradient(180deg, rgba(58,226,207,.11), rgba(58,226,207,.02))}
+  .kpi.hl .val{color:#a9f7ee}
+
+  .term{
+    border:1px solid var(--line); border-radius:14px; background:#04080f; overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  .term .bar{
+    display:flex; align-items:center; gap:7px; padding:8px 13px; border-bottom:1px solid var(--line-2);
+    background:rgba(255,255,255,.02);
+  }
+  .term .bar .lamp{width:9px;height:9px;border-radius:50%;background:#26364d}
+  .term .bar .lamp.r{background:#ff5f57}.term .bar .lamp.y{background:#febc2e}.term .bar .lamp.g{background:#28c840}
+  .term .bar span{margin-left:8px; font-family:var(--mono); font-size:11px; color:var(--muted-2)}
+  .term .body{
+    padding:12px 15px; height:330px; overflow:auto; font-family:var(--mono); font-size:12.2px;
+    line-height:1.62; color:#b9cce3; scroll-behavior:smooth;
+  }
+  .term .body::-webkit-scrollbar{width:9px}
+  .term .body::-webkit-scrollbar-thumb{background:#1d2b40; border-radius:9px}
+  .ln{white-space:pre-wrap; word-break:break-word}
+  .ln.cmd{color:#8ee7ff}
+  .ln.dim{color:#5f7794}
+  .ln.ok{color:var(--green)}
+  .ln.warn{color:var(--amber)}
+  .ln.key{color:var(--cyan)}
+  .ln.bad{color:var(--red)}
+  .ln.head{color:#fff; font-weight:600}
+  .ln .tnum{color:#ffcf8b}
+  .cursor{display:inline-block; width:7px; height:13px; background:var(--cyan); animation:blink 1s steps(1) infinite; vertical-align:-2px}
+  @keyframes blink{50%{opacity:0}}
+
+  .charts{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  .chartcard{border:1px solid var(--line); border-radius:14px; padding:14px 16px 10px; background:rgba(255,255,255,.02)}
+  .chartcard .hd{display:flex; align-items:baseline; gap:10px; margin-bottom:8px}
+  .chartcard .hd h4{margin:0; font-size:13px}
+  .chartcard .hd span{font-size:11px; color:var(--muted-2); margin-left:auto; font-family:var(--mono)}
+  canvas{display:block; width:100%; height:200px}
+  .empty{
+    height:200px; display:grid; place-items:center; color:var(--muted-2); font-size:12.5px;
+    border:1px dashed var(--line); border-radius:10px;
+  }
+
+  .strip{display:flex; flex-wrap:wrap; gap:3px}
+  .sq{width:13px;height:13px;border-radius:3px;background:#22304a}
+  .sq.v0{background:var(--cyan)} .sq.v1{background:var(--violet)} .sq.v2{background:var(--amber)}
+
+  .cmp{display:grid; gap:8px}
+  .cmprow{display:grid; grid-template-columns:150px 1fr 92px; gap:12px; align-items:center; font-size:12.8px}
+  .cmprow .name{color:var(--muted)}
+  .cmprow .barbg{display:block; height:9px; border-radius:99px; background:rgba(255,255,255,.06); overflow:hidden}
+  .cmprow .bar{display:block; height:100%; border-radius:99px; width:0; transition:width .7s cubic-bezier(.2,.8,.2,1)}
+  .cmprow .n{font-family:var(--mono); text-align:right; color:var(--txt)}
+
+  footer{padding:48px 0 64px; border-top:1px solid var(--line-2); color:var(--muted); font-size:13.5px}
+  footer h4{margin:0 0 10px; font-size:13px; letter-spacing:.8px; text-transform:uppercase; color:var(--muted-2)}
+  footer pre{
+    margin:10px 0 0; padding:14px 16px; background:#04080f; border:1px solid var(--line);
+    border-radius:12px; overflow:auto; font-size:12.3px; color:#cfe0f5; line-height:1.8;
+  }
+  .footgrid{display:grid; grid-template-columns:1.15fr .85fr; gap:22px}
+  .pin{color:var(--muted-2); font-size:12px; margin-top:22px; padding-top:16px; border-top:1px solid var(--line-2)}
+
+  @media (max-width:1000px){
+    .simwrap{grid-template-columns:1fr}
+    .controls{position:static}
+    .kpis{grid-template-columns:repeat(3,1fr)}
+    .charts{grid-template-columns:1fr}
+    .g3,.g4,.g2,.topo,.footgrid{grid-template-columns:1fr 1fr}
+  }
+  @media (max-width:680px){
+    .wrap{padding:0 15px}
+    .g3,.g4,.g2,.topo,.footgrid,.kpis{grid-template-columns:1fr}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    section{padding:42px 0}
+    .hero{padding:40px 0 20px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span><span>SOKA<small>Kelompok 7</small></span></div>
+    <nav class="nav">
+      <a href="#cso">CSO</a>
+      <a href="#kode">Bedah Kode</a>
+      <a href="#cloudsim">CloudSim</a>
+      <a href="#jalankan">Jalankan</a>
+      <a href="#hasil">Hasil</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero" style="border-top:0">
+    <span class="eyebrow">Cloud Task Scheduling · Metaheuristik</span>
+    <h1>Cat Swarm Optimization<br><span class="grad">untuk penjadwalan task di cloud</span></h1>
+    <p class="lead">
+      Halaman ini menjelaskan cara kerja <b>Cat Swarm Optimization (CSO)</b> yang dipakai untuk memetakan
+      cloudlet ke VM, membedah kode Java-nya baris per baris, lalu menjalankan simulasi
+      <b>CloudSim Plus</b> langsung di browser — lengkap dengan grafik konvergensi dan perbandingan
+      terhadap Sufferage serta Round Robin.
+    </p>
+    <div class="hero-cta">
+      <a class="btn primary" href="#jalankan">▶ Jalankan Simulasi</a>
+      <a class="btn ghost" href="#kode">Lihat kode CSO</a>
+    </div>
+    <div class="chips">
+      <span class="chip"><b>24</b> kucing</span>
+      <span class="chip"><b>35</b> iterasi</span>
+      <span class="chip"><b>70 / 30</b> seeking / tracing</span>
+      <span class="chip"><b>10</b> host · <b>20</b> VM</span>
+      <span class="chip">CloudSim Plus <b>8.5.4</b> · Java <b>17</b></span>
+    </div>
+  </section>
+
+  <!-- ================= CSO ================= -->
+  <section id="cso">
+    <div class="sec-head">
+      <span class="kicker">01 — Konsep</span>
+      <h2>Cat Swarm Optimization dalam satu menit</h2>
+      <p>
+        CSO meniru dua kebiasaan kucing: <b>beristirahat sambil mengamati</b> (seeking) dan
+        <b>mengejar target</b> (tracing). Setiap “kucing” adalah satu kandidat solusi, dan
+        solusi terbaik yang pernah ditemukan swarm disimpan sebagai <b>global best</b>.
+      </p>
+    </div>
+
+    <div class="grid g3" style="margin-bottom:16px">
+      <div class="card">
+        <div class="num">1</div>
+        <h3>Posisi = pemetaan task → VM</h3>
+        <p>Kasus cloud scheduling bersifat diskrit, jadi posisi kucing berupa array panjang&nbsp;<i>N</i>.
+        Elemen ke-<i>i</i> menyimpan indeks VM untuk cloudlet ke-<i>i</i>.</p>
+        <div class="posviz" id="posviz"></div>
+        <div class="legend">
+          <span><i style="background:var(--cyan)"></i>VM rendah 1.800 MIPS</span>
+          <span><i style="background:var(--violet)"></i>VM sedang 2.800 MIPS</span>
+          <span><i style="background:var(--amber)"></i>VM tinggi 3.800 MIPS</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="num">2</div>
+        <h3>Fitness = estimasi makespan</h3>
+        <p>Setiap posisi dievaluasi dengan mensimulasikan eksekusi: cloudlet dimasukkan ke slot PE
+        yang paling cepat kosong, lalu diambil waktu selesai yang paling akhir.</p>
+        <div class="math" style="margin-top:12px">
+<span class="k">finish</span>(t) = ready[slot] + length(t) / mips(VM)<br>
+<span class="k">makespan</span> = max finish(t) &nbsp;→&nbsp; <span class="v">makin kecil makin baik</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="num">3</div>
+        <h3>Dua mode pergerakan</h3>
+        <p><b>Seeking (70%)</b> — kucing mengacak sebagian kecil task ke VM lain, mencoba 4 kandidat,
+        lalu pindah ke kandidat terbaik. <b>Tracing (30%)</b> — kucing menyalin sebagian posisi
+        global best, dengan sedikit peluang acak agar tidak terjebak lokal optimum.</p>
+      </div>
+    </div>
+
+    <div class="grid g2">
+      <div class="card">
+        <h3>Alur satu kali <span class="mono" style="font-size:13px;color:var(--cyan)">schedule()</span></h3>
+        <div class="flow">
+          <div class="step"><div><b>Seed heuristik</b><span>Sufferage dan Round Robin dimasukkan sebagai 2 kucing pertama, sisanya posisi acak.</span></div></div>
+          <div class="step"><div><b>Tentukan global best</b><span>Kucing dengan fitness (makespan) terkecil disalin sebagai acuan tracing.</span></div></div>
+          <div class="step"><div><b>Ulangi 35 iterasi</b><span>Tiap kucing memilih mode seeking atau tracing, bergerak, lalu dievaluasi ulang.</span></div></div>
+          <div class="step"><div><b>Perbarui global best</b><span>Hanya jika fitness kucing benar-benar lebih kecil (elitisme).</span></div></div>
+          <div class="step"><div><b>Kembalikan assignment</b><span>Posisi global best dikonversi kembali menjadi <span class="mono">Map&lt;Cloudlet, Vm&gt;</span>.</span></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Parameter yang dipakai</h3>
+        <div class="tablewrap" style="margin-top:10px">
+          <table style="min-width:0">
+            <thead><tr><th>Konstanta</th><th>Nilai</th><th>Peran</th></tr></thead>
+            <tbody>
+              <tr><td>SWARM_SIZE</td><td>24</td><td style="text-align:left;font-family:inherit">jumlah kucing</td></tr>
+              <tr><td>ITERATIONS</td><td>35</td><td style="text-align:left;font-family:inherit">batas iterasi</td></tr>
+              <tr><td>SEEKING_RATIO</td><td>0,70</td><td style="text-align:left;font-family:inherit">peluang seeking</td></tr>
+              <tr><td>SEEKING_TRIALS</td><td>4</td><td style="text-align:left;font-family:inherit">kandidat per seeking</td></tr>
+              <tr><td>trace copy</td><td>0,45</td><td style="text-align:left;font-family:inherit">peluang ikut global best</td></tr>
+              <tr><td>trace acak</td><td>0,05</td><td style="text-align:left;font-family:inherit">peluang mutasi acak</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note" style="margin-top:14px">
+          <b>Kenapa di-seed Sufferage?</b> Supaya optimizer tidak pernah lebih buruk dari heuristik.
+          Kalau CSO gagal menemukan yang lebih baik, solusi Sufferage tetap jadi jawaban akhir.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= KODE ================= -->
+  <section id="kode">
+    <div class="sec-head">
+      <span class="kicker">02 — Implementasi</span>
+      <h2>Bedah kode <span class="mono" style="font-size:.72em;color:var(--cyan)">CatSwarmScheduler.java</span></h2>
+      <p>Semua potongan di bawah diambil langsung dari source di repo — klik tab untuk berpindah bagian.</p>
+    </div>
+
+    <div class="tabs" id="codetabs">
+      <button class="tab on" data-pane="p1">Parameter &amp; seed</button>
+      <button class="tab" data-pane="p2">Loop utama</button>
+      <button class="tab" data-pane="p3">seek()</button>
+      <button class="tab" data-pane="p4">trace()</button>
+      <button class="tab" data-pane="p5">evaluate()</button>
+      <button class="tab" data-pane="p6">Reproducible seed</button>
+    </div>
+
+    <div class="pane on" id="p1">
+      <div class="codebox">
+        <div class="head"><span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>CatSwarmScheduler.java · konstanta &amp; seeding</div>
+        <pre class="code" data-code="p1"></pre>
+      </div>
+      <div class="about">
+        <ul class="tick">
+          <li><b>Sufferage sebagai kucing pertama.</b> Hasil <span class="mono">SufferageScheduler.schedule()</span> dikonversi dulu ke bentuk array posisi lewat <span class="mono">toPositions()</span>, karena CSO bekerja pada indeks VM, bukan objek <span class="mono">Vm</span>.</li>
+          <li><b>Round Robin sebagai kucing kedua.</b> Baseline termurah, dipakai sebagai pembanding internal agar populasi awal tidak homogen.</li>
+          <li><b>Sisanya acak.</b> <span class="mono">randomPosition()</span> mengisi setiap task dengan indeks VM acak — inilah sumber eksplorasi.</li>
+        </ul>
+        <div class="note"><b>Array posisi</b> sengaja memakai <span class="mono">int[]</span>, bukan matriks alokasi penuh. Satu task pasti dieksekusi di tepat satu VM, sehingga representasi ini selalu valid tanpa proses repair.</div>
+      </div>
+    </div>
+
+    <div class="pane" id="p2">
+      <div class="codebox">
+        <div class="head"><span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>CatSwarmScheduler.java · iterasi utama</div>
+        <pre class="code" data-code="p2"></pre>
+      </div>
+      <div class="about">
+        <ul class="tick">
+          <li><b>Satu keputusan per kucing per iterasi.</b> <span class="mono">random.nextDouble() &lt; 0.70</span> menentukan mode; tidak ada kucing yang menjalankan keduanya di iterasi yang sama.</li>
+          <li><b>Tracing tidak butuh evaluasi kandidat.</b> Posisi diubah menuju global best lalu langsung dihitung fitness-nya sekali.</li>
+          <li><b>Global best diganti, bukan diubah.</b> <span class="mono">copyOf()</span> membuat salinan array supaya posisi kucing lain tidak ikut berubah saat tracing.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="pane" id="p3">
+      <div class="codebox">
+        <div class="head"><span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>CatSwarmScheduler.java · seek()</div>
+        <pre class="code" data-code="p3"></pre>
+      </div>
+      <div class="about">
+        <ul class="tick">
+          <li><b>Jumlah task yang diubah adaptif.</b> <span class="mono">length/20 + 1</span> berarti untuk 1.000 task hanya 1–51 elemen yang diacak, sehingga pencarian tetap lokal dan tidak merusak solusi bagus.</li>
+          <li><b>Empat percobaan (<span class="mono">SEEKING_TRIALS</span>)</b> per kucing — meniru kucing yang mencoba beberapa posisi sebelum memilih yang paling nyaman.</li>
+          <li><b>Tetap greedy terhadap fitness sendiri.</b> Kandidat baru hanya dipakai jika lebih baik dari posisi sekarang.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="pane" id="p4">
+      <div class="codebox">
+        <div class="head"><span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>CatSwarmScheduler.java · trace()</div>
+        <pre class="code" data-code="p4"></pre>
+      </div>
+      <div class="about">
+        <ul class="tick">
+          <li><b>0,45 — menyalin komponen global best.</b> Hanya untuk task yang VM-nya berbeda; kalau sama, tidak ada yang diubah.</li>
+          <li><b>0,05 — mutasi acak.</b> Menjaga keragaman populasi supaya swarm tidak cepat konvergen ke satu titik.</li>
+          <li>Urutan <span class="mono">if / else if</span> penting: mutasi acak hanya dievaluasi ketika syarat pertama tidak terpenuhi.</li>
+        </ul>
+        <div class="note warn"><b>RNG-nya deterministik.</b> Seed dihitung dari isi dataset, jadi hasil run di browser bisa dibandingkan langsung dengan hasil Java — urutan angka acaknya identik.</div>
+      </div>
+    </div>
+
+    <div class="pane" id="p5">
+      <div class="codebox">
+        <div class="head"><span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>CatSwarmScheduler.java · evaluate()</div>
+        <pre class="code" data-code="p5"></pre>
+      </div>
+      <div class="about">
+        <ul class="tick">
+          <li><b>Sadar jumlah PE.</b> Setiap VM punya array <span class="mono">readyTimes</span> sepanjang jumlah PE-nya, sehingga VM 4-PE bisa menjalankan 4 cloudlet sekaligus.</li>
+          <li><b>Greedy per slot.</b> Cloudlet berikutnya selalu masuk ke slot yang paling cepat kosong — setara dengan perilaku <span class="mono">CloudletSchedulerSpaceShared</span> yang dipakai CloudSim.</li>
+          <li><b>Kompleksitas O(n × PE)</b> per evaluasi, dan evaluasi dipanggil ribuan kali. Karena itu fungsi ini dibuat tanpa objek bantu agar tetap ringan.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="pane" id="p6">
+      <div class="codebox">
+        <div class="head"><span class="lamp"></span><span class="lamp"></span><span class="lamp"></span>CatSwarmScheduler.java · seed() &amp; validasi</div>
+        <pre class="code" data-code="p6"></pre>
+      </div>
+      <div class="about">
+        <ul class="tick">
+          <li><b>Bukan angka ajaib.</b> <span class="mono">0x9E3779B97F4A7C15</span> adalah golden ratio 64-bit yang biasa dipakai sebagai konstanta pencampur.</li>
+          <li><b>Seed bergantung pada data.</b> Panjang cloudlet dan jumlah PE VM ikut di-hash dengan pengali 31, sehingga dataset berbeda menghasilkan jalur pencarian berbeda, tetapi dataset yang sama selalu memberi hasil sama.</li>
+          <li><b>Validasi di depan.</b> VM tanpa PE atau MIPS tidak positif langsung ditolak sebelum optimisasi dimulai.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CLOUDSIM ================= -->
+  <section id="cloudsim">
+    <div class="sec-head">
+      <span class="kicker">03 — Infrastruktur</span>
+      <h2>Simulasi CloudSim Plus</h2>
+      <p>
+        Scheduler hanya menghasilkan <i>rencana</i> penempatan. Eksekusi sebenarnya — boot VM,
+        binding cloudlet, sampai pencatatan waktu selesai — dilakukan oleh simulator CloudSim Plus.
+      </p>
+    </div>
+
+    <div class="grid g2" style="align-items:start">
+      <div class="card">
+        <h3>Topologi yang dibangun</h3>
+        <p>Dua datacenter, masing-masing 5 host heterogen dan dibatasi 10 VM.</p>
+        <div class="topo">
+          <div class="dc">
+            <h4>Datacenter 1</h4>
+            <div class="sub">5 host · VM-00 … VM-09</div>
+            <div class="hosts">
+              <div class="host"><b>Host-00</b>2 core · 2.000 MIPS</div>
+              <div class="host"><b>Host-01</b>4 core · 3.000 MIPS</div>
+              <div class="host"><b>Host-02</b>8 core · 4.000 MIPS</div>
+              <div class="host"><b>Host-03</b>4 core · 3.000 MIPS</div>
+            </div>
+            <div class="vmrow">
+              <span class="vmchip">00</span><span class="vmchip b">01</span><span class="vmchip c">02</span>
+              <span class="vmchip">03</span><span class="vmchip b">04</span><span class="vmchip c">05</span>
+              <span class="vmchip">06</span><span class="vmchip b">07</span><span class="vmchip c">08</span>
+              <span class="vmchip">09</span>
+            </div>
+          </div>
+          <div class="dc">
+            <h4>Datacenter 2</h4>
+            <div class="sub">5 host · VM-10 … VM-19</div>
+            <div class="hosts">
+              <div class="host"><b>Host-00</b>2 core · 2.000 MIPS</div>
+              <div class="host"><b>Host-01</b>4 core · 3.000 MIPS</div>
+              <div class="host"><b>Host-02</b>8 core · 4.000 MIPS</div>
+              <div class="host"><b>Host-03</b>4 core · 3.000 MIPS</div>
+            </div>
+            <div class="vmrow">
+              <span class="vmchip">10</span><span class="vmchip b">11</span><span class="vmchip c">12</span>
+              <span class="vmchip">13</span><span class="vmchip b">14</span><span class="vmchip c">15</span>
+              <span class="vmchip">16</span><span class="vmchip b">17</span><span class="vmchip c">18</span>
+              <span class="vmchip">19</span>
+            </div>
+          </div>
+        </div>
+        <div class="broker">
+          <b>DatacenterBrokerSimple</b>
+          <span>→</span>
+          <span><span class="mono">setDatacenterMapper</span>: VM id &lt; 10 ke DC1, sisanya DC2</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Spesifikasi &amp; model eksekusi</h3>
+        <div class="tablewrap" style="margin-top:10px">
+          <table style="min-width:0">
+            <thead><tr><th>VM</th><th>PE</th><th>MIPS</th><th>RAM</th></tr></thead>
+            <tbody>
+              <tr><td>Rendah</td><td>1</td><td>1.800</td><td>1.024 MB</td></tr>
+              <tr><td>Sedang</td><td>2</td><td>2.800</td><td>2.048 MB</td></tr>
+              <tr><td>Tinggi</td><td>4</td><td>3.800</td><td>4.096 MB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul class="tick" style="margin-top:14px">
+          <li><b>Host scheduler</b> <span class="mono">VmSchedulerTimeShared</span> — beberapa VM boleh berbagi core host.</li>
+          <li><b>Cloudlet scheduler</b> <span class="mono">CloudletSchedulerSpaceShared</span> per VM — satu cloudlet menempati satu PE sampai selesai.</li>
+          <li><b>Cloudlet</b> dibuat dari panjang task GoCJ (MI), 1 PE, CPU full, RAM/BW dinamis 10%.</li>
+          <li><b>Binding</b> dilakukan eksplisit: <span class="mono">penjadwalan.forEach(broker::bindCloudletToVm)</span> sebelum <span class="mono">simulation.start()</span>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3>Lima metrik evaluasi</h3>
+      <p style="margin-bottom:14px">Semua metrik dihitung dari <span class="mono">getStartTime()</span> dan <span class="mono">getFinishTime()</span> cloudlet yang selesai — bukan dari estimasi scheduler.</p>
+      <div class="grid g3">
+        <div class="card" style="box-shadow:none;background:rgba(255,255,255,.02)">
+          <h3 style="font-size:14px">Makespan</h3>
+          <div class="math" style="margin-top:8px">max finish(t)</div>
+          <p style="margin-top:8px;font-size:13px">Waktu selesai cloudlet terakhir. Semakin kecil, semakin cepat seluruh batch.</p>
+        </div>
+        <div class="card" style="box-shadow:none;background:rgba(255,255,255,.02)">
+          <h3 style="font-size:14px">Degree of Imbalance</h3>
+          <div class="math" style="margin-top:8px">(b<sub>max</sub> − b<sub>min</sub>) / b<sub>avg</sub></div>
+          <p style="margin-top:8px;font-size:13px">b = total waktu eksekusi per VM. Nilai kecil berarti beban rata.</p>
+        </div>
+        <div class="card" style="box-shadow:none;background:rgba(255,255,255,.02)">
+          <h3 style="font-size:14px">Resource Utilization</h3>
+          <div class="math" style="margin-top:8px">Σcpu / (ΣPE × makespan) × 100%</div>
+          <p style="margin-top:8px;font-size:13px">Seberapa besar kapasitas PE yang benar-benar terpakai.</p>
+        </div>
+        <div class="card" style="box-shadow:none;background:rgba(255,255,255,.02)">
+          <h3 style="font-size:14px">Throughput</h3>
+          <div class="math" style="margin-top:8px">jumlah cloudlet / makespan</div>
+          <p style="margin-top:8px;font-size:13px">Task yang berhasil diselesaikan per detik simulasi.</p>
+        </div>
+        <div class="card" style="box-shadow:none;background:rgba(255,255,255,.02)">
+          <h3 style="font-size:14px">Average Response Time</h3>
+          <div class="math" style="margin-top:8px">mean(finish − delay)</div>
+          <p style="margin-top:8px;font-size:13px">Rata-rata lama sebuah task berada di sistem.</p>
+        </div>
+        <div class="card" style="box-shadow:none;background:rgba(255,255,255,.02)">
+          <h3 style="font-size:14px">Waktu scheduling</h3>
+          <div class="math" style="margin-top:8px">t₁ − t₀ (ms)</div>
+          <p style="margin-top:8px;font-size:13px">Biaya komputasi algoritma saja, diukur di sekitar <span class="mono">apply()</span>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= JALANKAN ================= -->
+  <section id="jalankan">
+    <div class="sec-head">
+      <span class="kicker">04 — Live</span>
+      <h2>Jalankan simulasi</h2>
+      <p>
+        Ada dua mesin. Kalau halaman dibuka lewat <span class="mono">jalankan-cloudsim.bat</span>, tombol di bawah
+        mengeksekusi <b>CloudSim Plus asli (JVM Java 17)</b> di laptop ini dan menampilkan stdout Java apa adanya.
+        Kalau file HTML dibuka langsung tanpa server, tombol memakai mesin browser — port 1:1 dari algoritma Java
+        (RNG <span class="mono">SplittableRandom</span>, <span class="mono">evaluate()</span>, Sufferage, Round Robin)
+        dengan model eksekusi PE slot yang sama seperti CloudSim.
+      </p>
+    </div>
+
+    <div class="simwrap">
+      <aside class="controls">
+        <div class="card" style="padding:18px">
+          <div class="field">
+            <label for="ds">Dataset GoCJ</label>
+            <select id="ds"></select>
+          </div>
+
+          <div class="field" style="margin-top:16px">
+            <label>Algoritma</label>
+            <div class="checks">
+              <label class="check"><input type="checkbox" class="algo" value="CSO" checked><span>Cat Swarm Optimization</span><span class="tag">metaheuristik</span></label>
+              <label class="check"><input type="checkbox" class="algo" value="SUF" checked><span>Sufferage (LBMM)</span><span class="tag">heuristik</span></label>
+              <label class="check"><input type="checkbox" class="algo" value="RR" checked><span>Round Robin</span><span class="tag">baseline</span></label>
+            </div>
+          </div>
+
+          <details class="adv" style="margin-top:16px">
+            <summary>Parameter lanjutan (opsional)</summary>
+            <div class="slider">
+              <div class="row"><span>Jumlah kucing</span><output id="o_swarm">24</output></div>
+              <input type="range" id="i_swarm" min="4" max="64" step="2" value="24">
+            </div>
+            <div class="slider">
+              <div class="row"><span>Iterasi</span><output id="o_iter">35</output></div>
+              <input type="range" id="i_iter" min="1" max="120" step="1" value="35">
+            </div>
+            <div class="slider" style="margin-bottom:0">
+              <div class="row"><span>Seeking ratio</span><output id="o_ratio">0,70</output></div>
+              <input type="range" id="i_ratio" min="10" max="95" step="5" value="70">
+            </div>
+            <div class="note warn" style="margin-top:12px;font-size:12.3px">
+              Nilai default = konstanta di Java. Mengubahnya membuat hasil tidak lagi sebanding dengan hasil eksperimen tercatat.
+            </div>
+          </details>
+
+          <div class="status" id="status" style="margin-top:16px"><span class="led"></span><span id="statusTxt">Siap dijalankan</span></div>
+
+          <div class="engine" id="engine"><span class="led"></span><span id="engineTxt">Mendeteksi mesin simulasi…</span></div>
+
+          <button class="btn primary" id="run" style="width:100%;margin-top:14px">▶ Jalankan Simulasi</button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+            <button class="btn ghost sm" id="csv" disabled>⭳ CSV</button>
+            <button class="btn ghost sm" id="reset">↺ Reset</button>
+          </div>
+        </div>
+
+        <div class="card" style="padding:16px">
+          <h3 style="font-size:13px;margin-bottom:8px">Catatan metode</h3>
+          <p id="methodNote" style="font-size:12.4px;line-height:1.6">
+            Angka <i>makespan</i> di sini adalah model analitik dari <span class="mono">evaluate()</span>.
+            Hasil CloudSim asli sedikit lebih besar (± 0,1–0,6%) karena overhead event simulator —
+            lihat kolom “tercatat” pada tabel perbandingan.
+          </p>
+        </div>
+      </aside>
+
+      <div class="out">
+        <div class="kpis">
+          <div class="kpi hl"><div class="lbl">Makespan</div><div class="val" id="k_make">—<small>s</small></div></div>
+          <div class="kpi"><div class="lbl">DI</div><div class="val" id="k_di">—</div></div>
+          <div class="kpi"><div class="lbl">RU</div><div class="val" id="k_ru">—<small>%</small></div></div>
+          <div class="kpi"><div class="lbl">Throughput</div><div class="val" id="k_thr">—<small>t/s</small></div></div>
+          <div class="kpi"><div class="lbl">ART</div><div class="val" id="k_art">—<small>s</small></div></div>
+          <div class="kpi"><div class="lbl" id="k_sched_lbl">Scheduling</div><div class="val" id="k_sched">—<small>ms</small></div></div>
+        </div>
+
+        <div class="term">
+          <div class="bar">
+            <span class="lamp r"></span><span class="lamp y"></span><span class="lamp g"></span>
+            <span>cloudsim — soka-simulasi</span>
+          </div>
+          <div class="body" id="term">
+            <div class="ln dim">Klik “Jalankan Simulasi” untuk memulai. Output akan muncul di sini seperti console Java.</div>
+          </div>
+        </div>
+
+        <div class="charts">
+          <div class="chartcard">
+            <div class="hd"><h4>Konvergensi CSO</h4><span id="convNote">fitness global best / iterasi</span></div>
+            <canvas id="cvConv"></canvas>
+          </div>
+          <div class="chartcard">
+            <div class="hd"><h4>Beban per VM</h4><span id="vmNote">detik eksekusi</span></div>
+            <canvas id="cvVm"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="hd" style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+            <h3 style="margin:0;font-size:14px">Peta assignment</h3>
+            <span id="mapNote" style="margin-left:auto;font-size:11px;color:var(--muted-2);font-family:var(--mono)">60 task pertama</span>
+          </div>
+          <div class="strip" id="map"><span class="ln dim" style="font-size:12px">Belum ada hasil.</span></div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:12px">Perbandingan algoritma</h3>
+          <div class="tablewrap">
+            <table id="cmpTable">
+              <thead>
+                <tr><th>Algoritma</th><th>Makespan (s)</th><th>DI</th><th>RU (%)</th><th>Throughput</th><th>ART (s)</th><th>Tercatat (s)</th><th>Δ</th></tr>
+              </thead>
+              <tbody><tr><td colspan="8" style="text-align:center;color:var(--muted-2);font-family:inherit">Belum ada hasil — jalankan simulasi dulu.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="cmp" id="cmpBars" style="margin-top:14px"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= HASIL ================= -->
+  <section id="hasil">
+    <div class="sec-head">
+      <span class="kicker">05 — Rekaman</span>
+      <h2>Hasil eksperimen yang tersimpan</h2>
+      <p>
+        Angka di bawah berasal dari <span class="mono">results/summary.csv</span> (rata-rata 3 run per konfigurasi,
+        dijalankan dengan Maven + CloudSim Plus). Grafik dan tabel dirender langsung dari data itu.
+      </p>
+    </div>
+
+    <div class="grid g2" style="align-items:start">
+      <div class="card">
+        <h3 style="margin-bottom:10px">Makespan vs ukuran dataset</h3>
+        <canvas id="cvRec" style="height:250px"></canvas>
+        <div class="legend" style="margin-top:8px">
+          <span><i style="background:var(--cyan)"></i>CSO</span>
+          <span><i style="background:var(--violet)"></i>Sufferage</span>
+          <span><i style="background:var(--amber)"></i>Round Robin</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:10px">Ringkasan per ukuran</h3>
+        <div class="tablewrap">
+          <table id="recTable">
+            <thead><tr><th>Task</th><th>CSO</th><th>Sufferage</th><th>Round Robin</th><th>CSO vs RR</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p style="margin-top:10px;font-size:12.3px">Satuan makespan: detik simulasi. Kolom terakhir = seberapa cepat CSO dibanding Round Robin.</p>
+      </div>
+    </div>
+
+    <div class="grid g4" style="margin-top:16px">
+      <div class="card"><div class="lbl" style="font-size:10.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted-2);font-weight:700">Task diuji</div><div style="font-family:var(--mono);font-size:24px;margin-top:6px">5.500</div><p style="font-size:12.8px">10 dataset GoCJ (100–1.000) × 3 run</p></div>
+      <div class="card"><div class="lbl" style="font-size:10.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted-2);font-weight:700">Total run</div><div style="font-family:var(--mono);font-size:24px;margin-top:6px">90</div><p style="font-size:12.8px">3 algoritma × 10 ukuran × 3 pengulangan</p></div>
+      <div class="card"><div class="lbl" style="font-size:10.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted-2);font-weight:700">Rata-rata lebih cepat</div><div style="font-family:var(--mono);font-size:24px;margin-top:6px;color:var(--green)">4,2×</div><p style="font-size:12.8px">CSO vs Round Robin pada makespan</p></div>
+      <div class="card"><div class="lbl" style="font-size:10.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted-2);font-weight:700">Overhead CSO</div><div style="font-family:var(--mono);font-size:24px;margin-top:6px;color:var(--amber)">±200<span style="font-size:11px;color:var(--muted-2)"> ms</span></div><p style="font-size:12.8px">waktu scheduling pada 1.000 task</p></div>
+    </div>
+  </section>
+
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footgrid">
+      <div>
+        <h4>Menjalankan versi Java asli</h4>
+        <p>Cara tercepat: klik dua kali <span class="mono">jalankan-cloudsim.bat</span> — server lokal menyala di
+        <span class="mono">http://127.0.0.1:8777</span> dan tombol di atas mengeksekusi JVM asli.</p>
+<pre># manual, kalau jar belum ada
+mvn -q clean package
+
+# satu dataset, ketiga algoritma
+java -jar target/soka-simulasi.jar --run GoCJ_Dataset_1000.txt
+
+# demo & eksperimen lengkap
+java -jar target/soka-simulasi.jar --demo
+java -jar target/soka-simulasi.jar --experiment-cso-gocj</pre>
+        <p style="margin-top:12px;font-size:12.8px">
+          Tanpa server, halaman tetap jalan offline memakai mesin browser. Output eksperimen menulis ulang
+          <span class="mono">results/raw/*.csv</span>.
+        </p>
+      </div>
+      <div>
+        <h4>Peta file yang dibahas</h4>
+        <ul class="tick">
+          <li><span class="mono">scheduler/metaheuristic/CatSwarmScheduler.java</span></li>
+          <li><span class="mono">scheduler/heuristic/SufferageScheduler.java</span></li>
+          <li><span class="mono">scheduler/baseline/RoundRobinScheduler.java</span></li>
+          <li><span class="mono">runner/SimulationRunner.java</span></li>
+          <li><span class="mono">metrics/MetricsCalculator.java</span></li>
+          <li><span class="mono">resources/Dataset_GoCJ/*.txt</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="pin">
+      SOKA · Kelompok 7 — Simulasi Cloud Task Scheduling Menggunakan CSO dan Heuristik Sufferage.
+      Semua angka pada panel simulasi dihitung ulang di browser dengan algoritma yang sama seperti source Java.
+    </div>
+  </div>
+</footer>
+
+<script id="soka-data">window.SOKA_DATA = {"datasets":{"100":[127000,83000,63000,63000,65000,15000,91000,85000,101000,40000,40000,712500,59000,113000,87000,53000,47000,127000,45000,27500,115000,525000,117000,105000,65000,77000,47000,89000,91000,105000,117000,51000,15000,337500,129000,47000,109000,109000,135000,89000,101000,95000,125000,127000,83000,900000,712500,83000,101000,59000,105000,59000,47000,125000,105000,712500,45000,109000,67000,61000,67000,127000,87000,107000,135000,101000,95000,127000,525000,51000,91000,91000,93000,63000,51000,91000,79000,77000,91000,111000,85000,71000,125000,712500,49000,47000,40000,87000,125000,75000,337500,61000,93000,49000,113000,115000,525000,55000,65000,79000],"200":[47000,40000,525000,59000,105000,123000,67000,55000,105000,15000,712500,125000,129000,83000,65000,59000,119000,125000,712500,127000,115000,53000,105000,113000,117000,63000,59000,107000,900000,105000,91000,65000,97000,73000,712500,105000,89000,123000,111000,47000,103000,525000,900000,73000,45000,77000,107000,40000,65000,111000,49000,127000,53000,337500,67000,113000,79000,99000,55000,135000,91000,115000,109000,49000,900000,107000,67000,67000,125000,900000,87000,525000,67000,77000,83000,87000,79000,101000,73000,63000,81000,61000,27500,49000,51000,45000,105000,63000,150000,107000,113000,77000,79000,103000,105000,93000,51000,525000,47000,71000,103000,75000,525000,121000,47000,73000,119000,107000,55000,51000,63000,55000,123000,81000,67000,91000,73000,75000,67000,61000,121000,77000,51000,117000,15000,115000,63000,123000,40000,47000,53000,40000,337500,117000,89000,135000,900000,101000,99000,15000,45000,53000,109000,115000,27500,135000,123000,135000,77000,95000,49000,129000,75000,71000,47000,111000,123000,109000,525000,93000,59000,87000,337500,77000,83000,89000,95000,75000,49000,27500,115000,87000,129000,97000,67000,107000,45000,87000,55000,111000,53000,63000,65000,525000,900000,97000,71000,101000,59000,83000,91000,40000,65000,101000,61000,113000,119000,49000,45000,121000],"300":[107000,40000,61000,40000,40000,81000,109000,105000,125000,121000,117000,117000,99000,61000,89000,900000,63000,51000,53000,45000,113000,107000,61000,45000,109000,81000,51000,712500,111000,67000,111000,105000,127000,85000,105000,117000,111000,712500,71000,525000,712500,99000,95000,107000,85000,45000,65000,45000,27500,87000,97000,40000,87000,95000,900000,87000,73000,63000,129000,59000,89000,337500,135000,337500,127000,77000,53000,15000,103000,125000,51000,59000,109000,95000,47000,81000,67000,73000,900000,51000,59000,89000,89000,127000,63000,109000,125000,79000,83000,103000,109000,73000,93000,101000,125000,111000,93000,55000,105000,73000,47000,75000,103000,91000,53000,900000,67000,65000,47000,27500,97000,115000,117000,55000,135000,337500,47000,27500,91000,83000,55000,15000,99000,150000,95000,67000,63000,15000,95000,117000,712500,63000,712500,49000,40000,53000,59000,113000,65000,51000,337500,75000,125000,45000,900000,45000,900000,125000,75000,109000,65000,79000,125000,712500,105000,49000,121000,97000,712500,103000,115000,900000,75000,55000,129000,77000,49000,81000,67000,87000,65000,101000,91000,40000,81000,113000,73000,712500,85000,115000,85000,135000,712500,135000,75000,111000,15000,123000,101000,712500,113000,45000,63000,150000,67000,40000,119000,135000,81000,49000,45000,525000,525000,47000,47000,103000,63000,40000,51000,91000,55000,117000,337500,95000,63000,129000,61000,117000,27500,85000,107000,45000,81000,15000,59000,71000,111000,79000,105000,89000,525000,67000,121000,121000,75000,105000,129000,123000,47000,525000,65000,127000,55000,135000,109000,89000,125000,113000,119000,125000,87000,73000,95000,75000,117000,109000,27500,75000,115000,93000,95000,107000,73000,49000,99000,81000,123000,15000,99000,93000,51000,105000,127000,73000,75000,109000,75000,75000,129000,89000,117000,107000,111000,75000,55000,73000,51000,900000,61000,81000,51000,117000,135000,71000,105000,45000,79000,81000,113000,105000],"400":[93000,103000,83000,83000,99000,95000,53000,101000,117000,121000,109000,77000,101000,55000,49000,59000,49000,101000,15000,47000,95000,73000,525000,337500,65000,75000,117000,85000,337500,101000,59000,121000,47000,129000,63000,55000,85000,51000,27500,99000,91000,81000,63000,105000,125000,89000,73000,123000,525000,83000,107000,129000,125000,89000,73000,95000,109000,103000,27500,77000,45000,99000,55000,89000,113000,107000,63000,83000,109000,129000,121000,85000,83000,95000,79000,67000,101000,89000,61000,27500,71000,115000,75000,103000,115000,61000,67000,63000,127000,107000,101000,135000,101000,87000,99000,712500,135000,91000,101000,75000,127000,107000,125000,117000,47000,27500,117000,87000,95000,101000,129000,525000,53000,27500,91000,97000,73000,91000,107000,117000,115000,67000,67000,900000,119000,87000,113000,65000,129000,49000,83000,95000,113000,123000,107000,525000,337500,105000,83000,103000,59000,119000,125000,123000,129000,125000,525000,83000,150000,119000,45000,51000,77000,40000,15000,107000,119000,900000,113000,119000,67000,111000,525000,127000,121000,712500,135000,109000,65000,91000,129000,117000,900000,40000,67000,89000,525000,65000,107000,127000,15000,15000,99000,150000,107000,111000,49000,127000,99000,71000,87000,95000,71000,81000,129000,93000,40000,337500,93000,67000,135000,123000,125000,40000,127000,95000,113000,85000,75000,109000,73000,27500,900000,115000,105000,75000,135000,111000,81000,109000,47000,105000,125000,115000,125000,337500,117000,27500,119000,900000,135000,27500,45000,105000,87000,83000,83000,59000,97000,47000,59000,95000,117000,67000,525000,97000,27500,109000,83000,87000,65000,105000,525000,109000,83000,103000,87000,105000,712500,95000,95000,123000,115000,105000,51000,109000,129000,97000,900000,45000,105000,97000,129000,59000,525000,89000,77000,71000,65000,77000,125000,117000,87000,79000,15000,71000,79000,27500,15000,87000,99000,49000,111000,47000,337500,79000,337500,45000,117000,59000,47000,337500,89000,79000,61000,79000,63000,150000,91000,91000,127000,117000,77000,67000,337500,103000,15000,95000,61000,40000,121000,525000,93000,91000,93000,101000,99000,89000,83000,115000,83000,121000,101000,55000,93000,89000,75000,105000,75000,75000,63000,121000,27500,103000,47000,117000,150000,67000,123000,91000,111000,63000,105000,59000,150000,63000,150000,525000,51000,81000,89000,63000,47000,81000,51000,81000,135000,121000,900000,150000,61000,900000,71000,15000,125000,91000,135000,81000,113000,113000,337500,101000,85000,79000,61000,101000,115000,97000,59000,87000,337500,101000,73000,115000,71000,97000,121000,95000,87000,55000],"500":[51000,53000,55000,103000,117000,59000,27500,125000,71000,59000,150000,93000,65000,107000,67000,59000,15000,89000,103000,63000,125000,712500,337500,105000,65000,49000,95000,337500,47000,105000,77000,71000,55000,103000,59000,63000,109000,107000,119000,85000,85000,61000,107000,61000,525000,47000,91000,109000,65000,123000,45000,55000,121000,97000,123000,900000,47000,105000,129000,93000,113000,115000,115000,15000,59000,115000,81000,115000,109000,111000,117000,27500,125000,105000,77000,99000,127000,71000,77000,79000,87000,45000,99000,97000,93000,45000,121000,71000,712500,900000,135000,85000,85000,75000,525000,89000,337500,45000,81000,115000,119000,59000,93000,117000,65000,103000,40000,525000,127000,15000,45000,47000,89000,85000,103000,111000,135000,127000,712500,150000,55000,91000,40000,119000,123000,75000,15000,71000,63000,117000,712500,61000,99000,150000,95000,337500,127000,40000,95000,61000,900000,111000,91000,89000,115000,127000,73000,127000,525000,97000,123000,111000,75000,79000,113000,712500,45000,117000,97000,51000,107000,105000,49000,123000,95000,40000,129000,121000,129000,119000,97000,40000,117000,900000,337500,95000,15000,40000,525000,95000,81000,91000,27500,49000,121000,75000,59000,93000,97000,129000,81000,40000,103000,73000,101000,105000,55000,77000,109000,111000,93000,81000,45000,73000,27500,125000,117000,93000,103000,61000,51000,45000,109000,129000,49000,99000,93000,101000,103000,95000,113000,109000,89000,51000,117000,103000,15000,51000,45000,129000,97000,337500,99000,71000,103000,15000,47000,75000,89000,79000,59000,113000,83000,59000,81000,101000,111000,712500,117000,40000,63000,113000,91000,99000,65000,129000,65000,83000,27500,150000,51000,89000,89000,67000,97000,525000,45000,103000,525000,53000,55000,95000,89000,63000,525000,525000,85000,83000,99000,95000,77000,87000,900000,85000,59000,525000,337500,123000,59000,83000,337500,15000,47000,15000,55000,525000,81000,85000,75000,101000,111000,105000,115000,51000,45000,525000,51000,65000,117000,119000,77000,150000,150000,103000,67000,77000,55000,63000,53000,27500,119000,47000,101000,67000,119000,103000,121000,125000,51000,135000,93000,87000,113000,150000,135000,63000,111000,89000,49000,113000,59000,63000,105000,51000,51000,121000,127000,77000,135000,45000,121000,75000,121000,119000,111000,525000,81000,63000,85000,59000,111000,150000,71000,67000,91000,51000,49000,87000,53000,47000,525000,67000,45000,150000,105000,127000,40000,103000,337500,79000,93000,150000,900000,87000,81000,63000,127000,105000,117000,101000,121000,103000,85000,123000,83000,123000,49000,101000,65000,127000,47000,49000,75000,97000,95000,95000,27500,97000,121000,91000,95000,67000,150000,85000,712500,71000,81000,40000,97000,49000,77000,73000,83000,135000,81000,150000,337500,150000,525000,27500,15000,337500,45000,525000,89000,53000,117000,105000,91000,117000,53000,81000,121000,900000,81000,900000,49000,109000,47000,119000,65000,125000,55000,61000,81000,101000,55000,55000,525000,115000,93000,45000,93000,87000,91000,113000,337500,129000,111000,55000,71000,103000,81000,85000,77000,65000,525000,97000,93000,121000,83000,111000,111000,51000,123000,111000,83000,121000,75000,15000,97000,67000,107000,49000,129000,79000,123000,99000,111000,129000],"600":[49000,119000,123000,53000,81000,81000,63000,107000,111000,73000,51000,63000,40000,73000,73000,115000,95000,712500,65000,115000,40000,99000,51000,77000,135000,79000,83000,47000,81000,712500,107000,119000,135000,111000,71000,117000,107000,81000,67000,59000,93000,113000,127000,150000,67000,55000,15000,115000,109000,712500,900000,105000,99000,119000,91000,59000,93000,67000,55000,51000,55000,61000,109000,101000,67000,49000,93000,93000,103000,87000,27500,125000,45000,75000,99000,121000,71000,111000,119000,103000,121000,91000,81000,87000,109000,77000,95000,129000,71000,123000,27500,123000,103000,15000,107000,125000,119000,119000,85000,97000,27500,40000,77000,83000,93000,79000,109000,121000,77000,123000,103000,129000,113000,101000,337500,127000,900000,107000,712500,81000,119000,51000,900000,113000,712500,55000,87000,55000,40000,83000,63000,83000,67000,127000,15000,79000,119000,83000,67000,87000,97000,85000,85000,135000,93000,47000,105000,127000,107000,77000,127000,525000,107000,55000,99000,93000,73000,121000,95000,117000,123000,111000,103000,51000,85000,107000,55000,712500,49000,87000,89000,127000,121000,712500,150000,63000,117000,123000,53000,97000,135000,75000,67000,75000,125000,123000,101000,115000,113000,123000,105000,83000,85000,99000,712500,337500,105000,99000,40000,27500,900000,73000,49000,85000,71000,123000,53000,337500,91000,63000,95000,45000,93000,87000,129000,337500,61000,53000,105000,119000,40000,119000,103000,337500,27500,103000,49000,712500,900000,109000,525000,117000,51000,121000,123000,135000,53000,97000,59000,27500,121000,47000,55000,59000,113000,125000,49000,85000,63000,129000,150000,107000,77000,75000,99000,127000,123000,79000,712500,75000,107000,525000,49000,77000,40000,45000,121000,93000,123000,127000,95000,79000,101000,115000,93000,115000,45000,45000,51000,51000,47000,115000,55000,79000,97000,55000,63000,150000,109000,27500,121000,47000,75000,45000,40000,65000,103000,47000,59000,81000,47000,107000,900000,123000,127000,99000,85000,59000,61000,337500,61000,115000,525000,113000,101000,99000,65000,40000,121000,93000,115000,125000,27500,123000,109000,15000,71000,105000,27500,95000,119000,900000,127000,105000,119000,75000,83000,712500,83000,113000,27500,111000,73000,525000,79000,119000,150000,93000,79000,83000,53000,712500,93000,63000,87000,40000,105000,111000,65000,97000,67000,55000,125000,61000,129000,45000,113000,49000,85000,525000,337500,49000,900000,95000,77000,73000,95000,150000,63000,59000,119000,107000,77000,79000,525000,135000,150000,45000,337500,712500,111000,99000,49000,129000,45000,103000,79000,115000,73000,91000,75000,59000,73000,125000,99000,105000,53000,119000,15000,103000,53000,71000,49000,71000,47000,55000,101000,49000,125000,53000,95000,900000,49000,113000,73000,63000,91000,81000,27500,85000,119000,129000,75000,107000,107000,67000,85000,77000,117000,117000,101000,79000,75000,63000,79000,71000,55000,525000,63000,51000,105000,127000,27500,53000,712500,89000,65000,117000,712500,73000,55000,127000,119000,93000,45000,129000,40000,900000,67000,101000,109000,125000,900000,127000,85000,91000,93000,65000,117000,150000,89000,59000,129000,111000,97000,71000,117000,87000,83000,65000,61000,15000,77000,27500,900000,99000,123000,51000,117000,99000,95000,75000,61000,115000,40000,119000,127000,115000,55000,113000,900000,65000,337500,150000,105000,79000,125000,712500,525000,83000,105000,51000,123000,109000,87000,51000,51000,15000,73000,89000,27500,61000,77000,107000,27500,40000,65000,40000,150000,83000,113000,47000,900000,119000,89000,59000,65000,115000,712500,65000,40000,65000,65000,49000,101000,75000,51000,59000,337500,103000,125000,150000,115000,55000,65000,71000,127000,129000,105000,525000,97000,129000,337500,105000,15000,115000,89000,89000,67000,61000,53000,15000,63000,337500,95000,67000,91000,83000,77000,95000,81000,79000,900000,87000,65000,51000,71000,81000,337500,337500],"700":[150000,45000,99000,71000,127000,71000,55000,113000,53000,97000,525000,87000,85000,121000,85000,105000,107000,117000,109000,712500,27500,75000,99000,712500,51000,125000,77000,103000,55000,125000,150000,73000,59000,117000,115000,40000,107000,47000,81000,99000,91000,111000,135000,103000,45000,79000,93000,101000,53000,111000,79000,150000,40000,61000,81000,67000,119000,127000,77000,75000,75000,59000,712500,115000,91000,900000,27500,337500,117000,125000,91000,95000,95000,87000,71000,129000,129000,53000,97000,111000,150000,99000,525000,712500,125000,127000,51000,85000,93000,65000,900000,53000,121000,101000,95000,49000,525000,99000,49000,89000,900000,27500,125000,135000,125000,91000,75000,65000,123000,47000,337500,900000,87000,115000,49000,111000,525000,99000,65000,150000,75000,113000,73000,127000,47000,150000,51000,61000,45000,97000,71000,81000,87000,93000,73000,53000,67000,89000,79000,121000,109000,117000,75000,525000,115000,97000,712500,525000,123000,107000,77000,15000,59000,101000,121000,53000,73000,91000,53000,119000,95000,119000,125000,73000,105000,27500,71000,87000,99000,105000,77000,53000,73000,135000,99000,45000,83000,125000,99000,61000,103000,63000,107000,67000,77000,47000,85000,15000,47000,65000,55000,103000,127000,125000,65000,97000,97000,123000,63000,107000,53000,103000,40000,337500,63000,97000,109000,63000,115000,73000,525000,85000,77000,125000,97000,63000,77000,119000,900000,127000,150000,15000,113000,95000,115000,59000,150000,87000,99000,89000,83000,97000,91000,101000,712500,117000,103000,87000,150000,103000,135000,107000,63000,125000,712500,93000,119000,900000,49000,77000,117000,61000,87000,65000,107000,75000,125000,123000,55000,525000,61000,87000,65000,337500,107000,115000,40000,107000,45000,129000,81000,91000,101000,65000,87000,63000,119000,117000,129000,109000,65000,113000,59000,103000,27500,119000,47000,89000,73000,89000,55000,129000,40000,107000,63000,99000,109000,27500,85000,109000,99000,87000,113000,40000,337500,77000,93000,111000,135000,83000,40000,127000,59000,77000,109000,105000,85000,51000,150000,63000,115000,150000,111000,55000,67000,67000,91000,27500,127000,49000,712500,135000,53000,77000,93000,525000,51000,129000,73000,67000,45000,85000,123000,113000,111000,47000,123000,40000,47000,111000,53000,91000,81000,81000,47000,125000,127000,111000,87000,40000,83000,119000,105000,150000,123000,99000,83000,113000,15000,135000,89000,63000,97000,113000,73000,87000,712500,15000,109000,40000,79000,65000,40000,113000,53000,103000,91000,89000,135000,337500,55000,103000,101000,53000,87000,900000,89000,59000,127000,123000,27500,87000,125000,71000,93000,65000,65000,101000,61000,135000,900000,81000,129000,77000,337500,15000,59000,63000,27500,59000,53000,77000,89000,45000,115000,95000,129000,525000,61000,135000,65000,119000,121000,900000,91000,71000,119000,115000,59000,93000,125000,53000,45000,65000,113000,47000,525000,101000,123000,95000,81000,121000,127000,40000,115000,123000,27500,117000,81000,93000,119000,67000,15000,27500,83000,99000,73000,93000,117000,107000,81000,150000,77000,107000,87000,99000,67000,73000,71000,121000,65000,77000,15000,67000,91000,900000,95000,109000,121000,101000,73000,53000,125000,77000,67000,117000,111000,40000,65000,51000,59000,49000,65000,87000,51000,51000,40000,55000,81000,127000,27500,89000,97000,125000,109000,113000,105000,65000,111000,79000,115000,79000,65000,525000,51000,75000,67000,712500,99000,59000,81000,67000,101000,95000,47000,119000,83000,127000,15000,900000,129000,75000,101000,525000,81000,47000,900000,113000,103000,150000,65000,71000,40000,45000,113000,75000,61000,95000,75000,135000,93000,59000,150000,129000,55000,53000,55000,93000,121000,127000,87000,59000,65000,109000,65000,61000,55000,123000,65000,119000,119000,109000,83000,95000,71000,150000,337500,121000,85000,121000,27500,27500,85000,71000,125000,337500,115000,71000,73000,105000,67000,61000,81000,97000,129000,129000,101000,71000,135000,111000,95000,115000,55000,79000,79000,125000,129000,109000,105000,71000,67000,75000,85000,65000,51000,95000,55000,97000,129000,123000,113000,15000,111000,79000,129000,119000,89000,712500,71000,59000,337500,83000,150000,65000,53000,93000,150000,111000,51000,105000,125000,95000,49000,103000,75000,135000,40000,99000,75000,99000,712500,129000,89000,105000,109000,40000,127000,85000,107000,49000,89000,85000,89000,63000,99000,119000,101000,712500,101000,15000,105000,63000,89000,93000,95000,103000,77000,95000,27500,101000,65000,67000,89000,63000,61000,15000,103000,49000,79000,337500],"800":[63000,87000,77000,337500,81000,135000,83000,113000,59000,65000,67000,49000,15000,61000,99000,75000,93000,117000,77000,107000,150000,67000,97000,97000,63000,127000,49000,77000,712500,712500,117000,93000,712500,135000,111000,45000,83000,75000,97000,95000,45000,77000,53000,85000,150000,93000,103000,93000,900000,95000,40000,79000,99000,123000,65000,525000,53000,115000,150000,337500,125000,109000,109000,900000,109000,27500,712500,45000,61000,59000,712500,101000,71000,115000,61000,27500,47000,121000,115000,89000,129000,525000,47000,55000,65000,103000,97000,77000,89000,27500,125000,101000,150000,111000,712500,109000,95000,63000,63000,71000,73000,55000,105000,15000,73000,93000,115000,71000,123000,109000,91000,125000,63000,75000,125000,63000,101000,119000,105000,67000,123000,123000,103000,107000,40000,47000,63000,111000,89000,97000,109000,51000,27500,61000,123000,119000,71000,95000,105000,47000,79000,45000,135000,117000,83000,123000,15000,27500,115000,99000,712500,47000,49000,45000,67000,83000,900000,71000,125000,113000,45000,27500,47000,47000,91000,900000,71000,75000,109000,81000,712500,115000,59000,93000,59000,63000,87000,40000,337500,65000,51000,105000,337500,111000,93000,99000,121000,117000,61000,119000,51000,85000,77000,55000,51000,119000,97000,121000,900000,85000,51000,59000,87000,61000,129000,75000,97000,91000,127000,63000,127000,83000,85000,83000,55000,525000,107000,55000,121000,109000,81000,525000,89000,59000,115000,99000,63000,55000,55000,65000,117000,119000,53000,77000,95000,61000,49000,67000,79000,103000,53000,91000,73000,15000,101000,77000,49000,45000,83000,107000,40000,97000,123000,105000,81000,103000,47000,55000,15000,900000,900000,55000,135000,89000,525000,91000,77000,45000,87000,93000,119000,125000,119000,115000,79000,67000,125000,45000,93000,61000,83000,129000,129000,101000,85000,40000,65000,79000,121000,123000,123000,113000,71000,121000,117000,93000,75000,150000,712500,89000,93000,73000,45000,75000,150000,129000,127000,125000,119000,27500,105000,99000,337500,89000,129000,95000,77000,113000,65000,53000,337500,91000,109000,75000,117000,45000,81000,55000,55000,79000,40000,61000,65000,525000,53000,45000,117000,51000,53000,95000,97000,91000,51000,109000,525000,123000,113000,125000,337500,115000,59000,150000,49000,67000,119000,67000,525000,101000,135000,123000,89000,47000,77000,55000,65000,107000,45000,47000,123000,900000,135000,67000,49000,99000,71000,59000,49000,27500,121000,77000,111000,91000,121000,15000,525000,85000,87000,123000,73000,525000,51000,71000,113000,95000,91000,107000,125000,135000,55000,93000,55000,65000,49000,712500,63000,900000,99000,103000,125000,89000,51000,125000,75000,103000,125000,40000,105000,65000,49000,135000,27500,115000,125000,49000,87000,27500,77000,67000,109000,71000,59000,97000,91000,109000,121000,123000,111000,67000,712500,127000,101000,107000,525000,101000,125000,51000,127000,49000,900000,129000,51000,15000,101000,95000,79000,40000,65000,79000,49000,103000,81000,111000,127000,129000,87000,125000,97000,85000,115000,95000,67000,87000,49000,51000,27500,103000,117000,105000,85000,93000,900000,89000,107000,59000,89000,81000,135000,125000,337500,51000,47000,121000,150000,61000,55000,51000,103000,93000,61000,79000,49000,61000,712500,75000,63000,125000,61000,99000,83000,111000,47000,105000,121000,59000,95000,75000,113000,127000,40000,103000,45000,107000,63000,77000,95000,93000,525000,40000,95000,77000,75000,93000,113000,129000,121000,27500,99000,109000,75000,103000,53000,77000,121000,71000,47000,89000,89000,51000,77000,67000,107000,121000,75000,67000,59000,111000,95000,105000,101000,73000,123000,123000,111000,115000,95000,55000,27500,115000,85000,91000,109000,95000,75000,150000,53000,103000,337500,71000,712500,79000,15000,111000,81000,79000,103000,53000,79000,125000,67000,49000,129000,97000,99000,103000,129000,97000,51000,115000,15000,81000,115000,129000,107000,75000,95000,525000,150000,91000,123000,89000,97000,49000,93000,99000,129000,27500,83000,15000,109000,75000,525000,51000,15000,93000,125000,63000,109000,121000,89000,115000,75000,85000,105000,93000,127000,73000,150000,900000,525000,47000,63000,99000,117000,712500,115000,150000,51000,79000,125000,83000,111000,15000,47000,45000,75000,40000,71000,71000,97000,77000,55000,45000,93000,49000,150000,113000,59000,119000,65000,97000,67000,337500,119000,125000,40000,107000,75000,40000,103000,45000,59000,109000,63000,123000,101000,85000,117000,51000,111000,61000,79000,105000,150000,85000,113000,67000,73000,45000,40000,111000,49000,97000,103000,525000,109000,119000,83000,61000,99000,40000,27500,337500,83000,83000,59000,125000,111000,47000,123000,49000,109000,81000,81000,77000,125000,61000,45000,71000,59000,53000,27500,525000,135000,40000,150000,525000,55000,119000,87000,109000,47000,71000,59000,129000,99000,103000,59000,51000,45000,105000,150000,129000,27500,67000,67000,45000,89000,65000,111000,53000,125000,40000,115000,87000,121000,89000,113000,115000,53000,712500,103000,117000,121000,45000,117000,63000,113000,40000,49000,51000,123000,93000,61000,129000,89000,107000,65000,89000,91000,109000,712500,47000,67000,65000,101000,111000,103000,127000,121000,95000],"900":[125000,40000,97000,101000,49000,119000,85000,63000,79000,55000,97000,59000,135000,51000,900000,135000,73000,121000,525000,123000,101000,53000,61000,77000,113000,63000,103000,77000,53000,55000,107000,101000,135000,900000,101000,525000,83000,59000,83000,109000,79000,49000,55000,79000,27500,85000,87000,81000,59000,135000,125000,83000,73000,61000,49000,125000,71000,55000,150000,81000,85000,95000,123000,712500,67000,111000,27500,53000,125000,85000,15000,127000,150000,900000,97000,85000,135000,49000,73000,63000,73000,135000,85000,49000,900000,107000,83000,27500,115000,125000,115000,89000,59000,121000,129000,113000,103000,129000,79000,712500,27500,117000,150000,81000,91000,121000,135000,71000,67000,71000,67000,87000,99000,113000,73000,95000,99000,87000,87000,81000,71000,95000,45000,63000,63000,117000,89000,63000,15000,85000,51000,85000,53000,45000,125000,71000,47000,81000,63000,97000,103000,97000,109000,81000,85000,79000,117000,103000,101000,49000,85000,101000,47000,67000,27500,79000,129000,75000,109000,103000,900000,79000,111000,123000,81000,103000,73000,79000,150000,150000,91000,337500,79000,40000,61000,27500,77000,113000,59000,525000,97000,125000,15000,119000,109000,91000,93000,115000,85000,125000,119000,65000,95000,113000,73000,51000,101000,103000,67000,525000,45000,63000,55000,111000,47000,125000,61000,150000,121000,85000,79000,81000,109000,83000,115000,712500,337500,15000,81000,900000,115000,113000,15000,47000,127000,125000,85000,87000,121000,77000,73000,51000,85000,61000,109000,109000,61000,71000,127000,61000,85000,337500,85000,111000,85000,83000,45000,91000,113000,75000,121000,127000,40000,51000,337500,59000,15000,105000,71000,53000,103000,115000,87000,15000,75000,49000,47000,107000,45000,83000,150000,127000,95000,45000,77000,15000,53000,27500,55000,45000,111000,150000,67000,99000,77000,123000,107000,337500,77000,89000,712500,105000,115000,105000,135000,53000,109000,119000,87000,107000,525000,77000,83000,117000,125000,59000,49000,119000,77000,113000,53000,127000,47000,129000,63000,27500,101000,40000,27500,91000,47000,83000,77000,127000,53000,63000,129000,97000,77000,83000,97000,67000,125000,15000,47000,125000,117000,85000,105000,27500,900000,525000,337500,712500,63000,45000,45000,85000,117000,73000,97000,135000,109000,77000,73000,27500,97000,107000,27500,85000,123000,337500,125000,40000,111000,99000,61000,15000,45000,123000,111000,67000,113000,712500,121000,55000,135000,61000,337500,125000,77000,103000,49000,135000,125000,91000,525000,77000,79000,93000,73000,79000,337500,125000,900000,109000,105000,83000,40000,47000,47000,900000,107000,99000,45000,111000,79000,89000,71000,45000,61000,97000,53000,77000,121000,73000,97000,15000,61000,150000,40000,95000,150000,27500,73000,103000,109000,123000,53000,75000,107000,101000,67000,47000,115000,103000,101000,113000,55000,83000,45000,113000,97000,101000,65000,125000,712500,85000,123000,123000,95000,101000,63000,109000,89000,113000,79000,77000,27500,119000,129000,87000,712500,97000,49000,115000,75000,337500,61000,79000,79000,101000,81000,77000,111000,115000,61000,900000,65000,87000,525000,111000,47000,107000,95000,121000,83000,87000,119000,103000,101000,85000,27500,89000,77000,121000,89000,55000,55000,47000,99000,150000,900000,900000,150000,117000,45000,119000,117000,113000,65000,93000,47000,97000,73000,107000,117000,89000,103000,125000,55000,525000,27500,91000,55000,117000,337500,85000,109000,111000,51000,81000,99000,337500,712500,91000,135000,40000,129000,129000,121000,71000,129000,525000,59000,121000,89000,95000,91000,123000,67000,77000,51000,101000,79000,103000,150000,61000,61000,55000,111000,79000,65000,27500,83000,97000,107000,83000,75000,71000,59000,150000,47000,61000,45000,67000,101000,525000,101000,111000,113000,103000,99000,111000,73000,61000,121000,97000,101000,107000,135000,27500,53000,525000,97000,712500,150000,337500,15000,115000,40000,103000,45000,51000,95000,125000,150000,47000,125000,712500,337500,105000,101000,59000,150000,109000,125000,61000,40000,111000,107000,53000,59000,125000,117000,117000,135000,712500,712500,712500,61000,525000,103000,111000,127000,40000,129000,525000,117000,83000,91000,53000,123000,91000,109000,85000,27500,525000,121000,65000,111000,63000,91000,67000,89000,71000,150000,95000,79000,67000,109000,97000,337500,67000,73000,337500,119000,109000,712500,89000,125000,129000,51000,47000,27500,63000,129000,63000,55000,85000,53000,87000,91000,55000,127000,85000,47000,75000,53000,87000,119000,79000,115000,109000,115000,129000,65000,65000,337500,73000,87000,119000,47000,119000,127000,91000,113000,53000,55000,55000,95000,123000,113000,113000,121000,107000,47000,59000,337500,113000,105000,115000,67000,77000,85000,71000,107000,93000,525000,79000,59000,900000,105000,99000,45000,97000,81000,53000,83000,99000,79000,67000,55000,337500,73000,135000,51000,135000,121000,55000,712500,61000,83000,127000,71000,123000,91000,63000,121000,117000,79000,115000,900000,75000,127000,900000,119000,75000,83000,150000,712500,113000,67000,79000,51000,97000,105000,77000,121000,81000,71000,115000,47000,525000,127000,113000,105000,101000,150000,59000,97000,127000,125000,77000,87000,119000,119000,103000,117000,525000,61000,91000,85000,103000,125000,47000,135000,115000,47000,105000,337500,93000,105000,109000,55000,51000,712500,75000,83000,150000,75000,93000,73000,51000,123000,99000,125000,65000,127000,67000,129000,150000,107000,712500,45000,337500,123000,712500,87000,135000,63000,129000,77000,101000,111000,103000,900000,111000,49000,55000,91000,73000,150000,79000,75000,123000,121000,111000,55000,113000,109000,117000,99000,93000,525000,119000,73000,27500,135000,83000,67000,51000,129000,27500,53000,97000,91000,79000,900000,47000,97000,87000,135000,107000,91000,83000,53000,83000,127000,115000,47000,107000,81000,93000,712500,40000,135000,97000,107000,525000],"1000":[83000,95000,91000,81000,27500,49000,103000,95000,47000,71000,55000,40000,111000,125000,99000,712500,87000,123000,107000,81000,51000,59000,150000,113000,55000,91000,135000,83000,59000,525000,40000,95000,129000,27500,89000,337500,129000,129000,712500,55000,81000,47000,77000,75000,83000,51000,61000,89000,127000,87000,77000,40000,89000,89000,129000,47000,127000,119000,150000,129000,40000,97000,61000,45000,73000,45000,97000,712500,15000,129000,115000,109000,111000,67000,49000,83000,65000,125000,85000,73000,113000,93000,95000,117000,81000,99000,89000,65000,101000,79000,900000,99000,115000,150000,83000,40000,89000,123000,109000,71000,105000,117000,89000,109000,55000,77000,83000,109000,129000,111000,55000,93000,63000,115000,53000,111000,61000,63000,65000,87000,121000,75000,129000,121000,65000,119000,55000,40000,117000,103000,47000,79000,95000,117000,71000,123000,75000,71000,150000,85000,45000,47000,525000,47000,121000,65000,81000,67000,55000,53000,51000,127000,125000,87000,109000,900000,45000,525000,113000,61000,45000,75000,117000,113000,45000,93000,712500,45000,115000,99000,119000,105000,40000,87000,89000,59000,125000,113000,125000,99000,67000,87000,105000,71000,99000,107000,27500,103000,111000,111000,81000,111000,121000,150000,125000,115000,67000,65000,113000,119000,712500,73000,83000,63000,103000,51000,900000,105000,123000,119000,47000,83000,525000,81000,85000,109000,712500,97000,45000,101000,40000,103000,89000,135000,93000,75000,95000,89000,81000,15000,525000,93000,125000,900000,103000,83000,89000,77000,77000,71000,45000,103000,49000,45000,75000,115000,93000,121000,65000,65000,95000,127000,93000,99000,93000,119000,49000,121000,105000,105000,71000,65000,525000,93000,150000,59000,87000,67000,91000,55000,49000,113000,125000,79000,97000,83000,83000,900000,65000,65000,135000,95000,97000,127000,95000,85000,109000,95000,65000,51000,99000,111000,73000,121000,87000,73000,105000,85000,101000,127000,85000,27500,81000,115000,91000,103000,900000,123000,103000,73000,45000,65000,127000,123000,89000,85000,63000,105000,119000,85000,53000,99000,115000,105000,150000,105000,150000,150000,123000,77000,900000,71000,150000,51000,65000,95000,115000,99000,121000,95000,135000,49000,40000,129000,85000,712500,85000,27500,712500,59000,121000,61000,91000,61000,81000,712500,117000,129000,109000,40000,121000,101000,525000,125000,59000,40000,99000,40000,59000,99000,525000,49000,337500,73000,45000,85000,150000,127000,135000,111000,79000,105000,117000,113000,113000,75000,91000,117000,95000,99000,111000,121000,115000,79000,109000,47000,135000,47000,89000,81000,95000,89000,525000,117000,93000,119000,85000,121000,81000,87000,85000,135000,135000,129000,67000,27500,59000,40000,83000,71000,75000,125000,53000,47000,79000,83000,83000,53000,99000,127000,109000,83000,89000,77000,123000,712500,89000,121000,61000,337500,27500,712500,117000,87000,712500,712500,150000,121000,67000,93000,107000,121000,115000,109000,900000,101000,79000,101000,91000,15000,97000,67000,59000,53000,67000,55000,63000,81000,117000,61000,40000,111000,101000,113000,67000,900000,65000,55000,87000,107000,121000,65000,65000,101000,119000,59000,99000,51000,81000,119000,15000,125000,59000,77000,83000,79000,95000,53000,77000,79000,93000,87000,67000,95000,67000,117000,85000,525000,111000,79000,91000,73000,47000,95000,65000,91000,65000,49000,91000,103000,113000,109000,40000,99000,101000,121000,109000,119000,111000,67000,900000,85000,119000,105000,27500,75000,115000,65000,55000,101000,125000,121000,119000,63000,65000,115000,45000,113000,65000,900000,77000,79000,123000,53000,125000,55000,111000,55000,107000,65000,125000,65000,61000,40000,125000,63000,51000,89000,83000,117000,27500,129000,113000,61000,150000,71000,93000,65000,525000,117000,95000,105000,59000,97000,111000,93000,150000,15000,59000,79000,89000,525000,83000,91000,83000,49000,87000,27500,15000,111000,79000,83000,53000,27500,113000,97000,61000,119000,87000,91000,45000,103000,59000,65000,111000,55000,103000,117000,109000,99000,121000,59000,113000,111000,111000,900000,337500,117000,119000,71000,123000,525000,111000,127000,77000,27500,77000,127000,53000,89000,75000,45000,99000,127000,87000,45000,101000,101000,49000,99000,127000,49000,77000,135000,150000,47000,525000,63000,71000,135000,47000,65000,71000,65000,77000,117000,712500,101000,75000,125000,103000,121000,127000,101000,40000,49000,117000,129000,55000,47000,63000,95000,87000,121000,95000,65000,77000,109000,49000,127000,121000,40000,77000,61000,337500,61000,63000,125000,117000,67000,107000,61000,53000,150000,101000,337500,75000,93000,77000,87000,111000,105000,105000,73000,117000,53000,105000,135000,61000,67000,51000,49000,81000,95000,129000,65000,81000,53000,109000,150000,119000,63000,109000,337500,15000,129000,95000,101000,125000,63000,105000,95000,15000,125000,77000,65000,93000,150000,77000,135000,49000,49000,45000,119000,712500,79000,91000,150000,77000,67000,67000,119000,83000,40000,87000,81000,113000,93000,81000,135000,51000,81000,712500,337500,59000,115000,119000,900000,117000,115000,93000,49000,81000,79000,93000,45000,51000,79000,73000,712500,87000,125000,95000,129000,81000,53000,87000,103000,135000,73000,111000,99000,91000,111000,53000,125000,900000,27500,55000,79000,95000,900000,71000,85000,115000,71000,101000,27500,75000,135000,81000,115000,75000,712500,125000,109000,79000,95000,101000,150000,49000,55000,107000,81000,89000,900000,99000,113000,91000,71000,47000,61000,65000,73000,85000,107000,65000,83000,79000,75000,115000,123000,81000,49000,79000,900000,67000,103000,85000,900000,115000,55000,53000,85000,49000,119000,93000,127000,109000,900000,51000,119000,89000,117000,85000,109000,71000,49000,337500,87000,337500,109000,121000,59000,101000,83000,75000,27500,150000,47000,900000,71000,111000,73000,15000,79000,99000,71000,127000,119000,55000,525000,97000,525000,91000,125000,59000,103000,51000,93000,113000,67000,115000,73000,129000,63000,89000,150000,103000,129000,135000,40000,89000,63000,127000,105000,107000,99000,65000,95000,103000,89000,55000,93000,45000,85000,119000,47000,55000,129000,40000,103000,49000,119000,55000,51000,83000,15000,93000,712500,87000,105000,85000,63000,71000,49000,79000,115000,121000,97000,127000,129000,109000,49000,105000,45000,95000,712500,900000,65000,45000,119000,113000,900000,127000,135000,77000,97000,77000,103000,900000,113000,135000,59000,127000,135000,47000,15000,81000,59000,101000,81000,97000,900000,65000,75000,123000,337500,97000,73000]},"recorded":[{"size":100,"algo":"Cat Swarm Optimization","makespan":237.0187,"di":2.4773,"ru":40.3888,"throughput":0.4219,"art":65.7877,"sched":45.7583},{"size":100,"algo":"Round Robin (baseline)","makespan":620.1772,"di":1.954,"ru":20.1995,"throughput":0.1612,"art":112.4703,"sched":0.1817},{"size":100,"algo":"Sufferage (LBMM)","makespan":263.8666,"di":3.0815,"ru":34.4747,"throughput":0.379,"art":57.6292,"sched":6.6987},{"size":200,"algo":"Cat Swarm Optimization","makespan":309.3032,"di":2.2751,"ru":63.3724,"throughput":0.6466,"art":118.187,"sched":78.868},{"size":200,"algo":"Round Robin (baseline)","makespan":933.2211,"di":1.2774,"ru":26.2367,"throughput":0.2143,"art":207.6793,"sched":0.107},{"size":200,"algo":"Sufferage (LBMM)","makespan":349.6034,"di":1.8024,"ru":54.8034,"throughput":0.5721,"art":105.8342,"sched":27.4813},{"size":300,"algo":"Cat Swarm Optimization","makespan":402.6895,"di":1.37,"ru":75.577,"throughput":0.745,"art":172.2725,"sched":108.7007},{"size":300,"algo":"Round Robin (baseline)","makespan":1284.4433,"di":1.1421,"ru":29.3624,"throughput":0.2336,"art":310.9879,"sched":0.0673},{"size":300,"algo":"Sufferage (LBMM)","makespan":456.4768,"di":1.4698,"ru":65.1643,"throughput":0.6572,"art":165.9523,"sched":27.666},{"size":400,"algo":"Cat Swarm Optimization","makespan":442.9284,"di":1.4512,"ru":84.066,"throughput":0.9031,"art":199.6115,"sched":95.751},{"size":400,"algo":"Round Robin (baseline)","makespan":1655.5489,"di":1.0528,"ru":28.0173,"throughput":0.2416,"art":363.1592,"sched":0.0547},{"size":400,"algo":"Sufferage (LBMM)","makespan":442.9284,"di":1.4512,"ru":84.066,"throughput":0.9031,"art":199.6115,"sched":35.767},{"size":500,"algo":"Cat Swarm Optimization","makespan":579.875,"di":1.6074,"ru":81.1032,"throughput":0.8623,"art":253.7225,"sched":82.3293},{"size":500,"algo":"Round Robin (baseline)","makespan":2005.4467,"di":1.0847,"ru":29.0557,"throughput":0.2493,"art":460.9372,"sched":0.0617},{"size":500,"algo":"Sufferage (LBMM)","makespan":602.425,"di":1.4319,"ru":77.3557,"throughput":0.83,"art":250.7008,"sched":44.7303},{"size":600,"algo":"Cat Swarm Optimization","makespan":719.8829,"di":1.4289,"ru":82.3413,"throughput":0.8335,"art":310.7539,"sched":90.048},{"size":600,"algo":"Round Robin (baseline)","makespan":3172.5517,"di":1.5365,"ru":23.5903,"throughput":0.1891,"art":600.7443,"sched":0.0787},{"size":600,"algo":"Sufferage (LBMM)","makespan":724.8739,"di":1.42,"ru":81.4193,"throughput":0.8277,"art":308.9955,"sched":74.7017},{"size":700,"algo":"Cat Swarm Optimization","makespan":751.235,"di":1.3919,"ru":84.0895,"throughput":0.9318,"art":343.7385,"sched":114.3347},{"size":700,"algo":"Round Robin (baseline)","makespan":3434.6622,"di":1.4276,"ru":24.511,"throughput":0.2038,"art":759.3273,"sched":0.0827},{"size":700,"algo":"Sufferage (LBMM)","makespan":755.1879,"di":1.4172,"ru":83.179,"throughput":0.9269,"art":339.4816,"sched":91.0773},{"size":800,"algo":"Cat Swarm Optimization","makespan":840.5726,"di":1.4076,"ru":84.5344,"throughput":0.9517,"art":382.9778,"sched":134.242},{"size":800,"algo":"Round Robin (baseline)","makespan":3335.8806,"di":1.0872,"ru":27.5896,"throughput":0.2398,"art":789.976,"sched":0.1053},{"size":800,"algo":"Sufferage (LBMM)","makespan":840.5726,"di":1.4076,"ru":84.5344,"throughput":0.9517,"art":382.9778,"sched":117.3227},{"size":900,"algo":"Cat Swarm Optimization","makespan":993.1553,"di":1.3931,"ru":86.8391,"throughput":0.9062,"art":432.4491,"sched":172.9263},{"size":900,"algo":"Round Robin (baseline)","makespan":4067.2211,"di":1.1818,"ru":27.8963,"throughput":0.2213,"art":923.3037,"sched":0.133},{"size":900,"algo":"Sufferage (LBMM)","makespan":993.1553,"di":1.3931,"ru":86.8391,"throughput":0.9062,"art":432.4491,"sched":165.4913},{"size":1000,"algo":"Cat Swarm Optimization","makespan":1085.7726,"di":1.4394,"ru":86.1334,"throughput":0.921,"art":478.6915,"sched":202.1693},{"size":1000,"algo":"Round Robin (baseline)","makespan":4608.44,"di":1.1551,"ru":26.3575,"throughput":0.217,"art":948.0869,"sched":0.1293},{"size":1000,"algo":"Sufferage (LBMM)","makespan":1095.3455,"di":1.3944,"ru":85.0989,"throughput":0.913,"art":476.2895,"sched":192.766}]};</script>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   DATA (dataset GoCJ + hasil eksperimen tercatat)
+   ============================================================ */
+const DATA = window.SOKA_DATA || { datasets:{}, recorded:[] };
+const SIZES = Object.keys(DATA.datasets).map(Number).sort((a,b)=>a-b);
+
+/* Status mesin simulasi: true bila halaman dibuka lewat tools/cloudsim-server.js */
+const JAVA = { ok:false, info:null };
+
+/* ============================================================
+   ENGINE — port 1:1 dari Java
+   ============================================================ */
+const u64 = x => BigInt.asUintN(64, x);
+const GOLDEN_GAMMA = 0x9e3779b97f4a7c15n;
+const mix64 = z => {
+  z = u64((z ^ (z >> 30n)) * 0xbf58476d1ce4e5b9n);
+  z = u64((z ^ (z >> 27n)) * 0x94d049bb133111ebn);
+  return u64(z ^ (z >> 31n));
+};
+const mix32 = z => {
+  z = u64((z ^ (z >> 33n)) * 0x62a9d9ed799705f5n);
+  z = u64((z ^ (z >> 28n)) * 0xcb24d0a5c88c35b3n);
+  return Number((z >> 32n) & 0xffffffffn) | 0;
+};
+class SplittableRandom {
+  constructor(seed){ this.seed = u64(seed); this.gamma = GOLDEN_GAMMA; }
+  nextSeed(){ this.seed = u64(this.seed + this.gamma); return this.seed; }
+  nextLong(){ return mix64(this.nextSeed()); }
+  nextDouble(){ return Number(this.nextLong() >> 11n) * Math.pow(2,-53); }
+  nextInt(bound){
+    let r = mix32(this.nextSeed());
+    const m = bound - 1;
+    if ((bound & m) === 0) return r & m;
+    let u = r >>> 1;
+    while ((u + m - (r = u % bound)) < 0) u = mix32(this.nextSeed()) >>> 1;
+    return r;
+  }
+}
+
+const VM_TYPES = [
+  { nama:'rendah', mips:1800, pes:1, ram:1024 },
+  { nama:'sedang', mips:2800, pes:2, ram:2048 },
+  { nama:'tinggi', mips:3800, pes:4, ram:4096 }
+];
+
+function buildVms(){
+  const vms = [];
+  for (let i=0;i<20;i++){
+    const t = (i % 10) % 3;                 // sama dengan runner Java: dua blok @10 VM
+    vms.push({ id:i, tipe:t, ...VM_TYPES[t], dc: i<10 ? 'DC1' : 'DC2' });
+  }
+  return vms;
+}
+
+function evaluate(pos, lengths, vms){
+  const ready = vms.map(v => new Array(v.pes).fill(0));
+  let makespan = 0;
+  for (let t=0;t<lengths.length;t++){
+    const vi = pos[t], slots = ready[vi];
+    let s = 0;
+    for (let i=1;i<slots.length;i++) if (slots[i] < slots[s]) s = i;
+    const finish = slots[s] + lengths[t] / vms[vi].mips;
+    slots[s] = finish;
+    if (finish > makespan) makespan = finish;
+  }
+  return makespan;
+}
+
+function seedOf(lengths, vms){
+  let seed = u64(0x9E3779B97F4A7C15n ^ BigInt(lengths.length));
+  for (let i=0;i<lengths.length;i++) seed = u64(seed * 31n + BigInt(lengths[i]));
+  for (let i=0;i<vms.length;i++) seed = u64(seed * 31n + BigInt(vms[i].pes));
+  return seed;
+}
+
+function sufferage(lengths, vms){
+  const ready = vms.map(v => new Array(v.pes).fill(0));
+  const pos = new Array(lengths.length).fill(0);
+  const sisa = lengths.map((_,i)=>i);
+  while (sisa.length){
+    let pilih=-1, pilihVm=-1, sufTerbesar=-1, ctTerpilih=Infinity;
+    for (let k=0;k<sisa.length;k++){
+      const cl = sisa[k];
+      let ctTerbaik=Infinity, ctKedua=Infinity, vmTerbaik=-1;
+      for (let v=0;v<vms.length;v++){
+        const slots = ready[v];
+        let s = 0;
+        for (let i=1;i<slots.length;i++) if (slots[i] < slots[s]) s = i;
+        const ct = slots[s] + lengths[cl] / vms[v].mips;
+        if (ct < ctTerbaik){ ctKedua = ctTerbaik; ctTerbaik = ct; vmTerbaik = v; }
+        else if (ct < ctKedua) ctKedua = ct;
+      }
+      const suf = ctKedua === Infinity ? 0 : ctKedua - ctTerbaik;
+      if (suf > sufTerbesar){ sufTerbesar = suf; pilih = cl; pilihVm = vmTerbaik; ctTerpilih = ctTerbaik; }
+    }
+    pos[pilih] = pilihVm;
+    const slots = ready[pilihVm];
+    let s = 0;
+    for (let i=1;i<slots.length;i++) if (slots[i] < slots[s]) s = i;
+    slots[s] = ctTerpilih;
+    sisa.splice(sisa.indexOf(pilih),1);
+  }
+  return pos;
+}
+
+function roundRobin(lengths, vms){
+  const pos = new Array(lengths.length);
+  for (let i=0;i<lengths.length;i++) pos[i] = i % vms.length;
+  return pos;
+}
+
+function cso(lengths, vms, opt){
+  const SWARM = opt.swarm, ITER = opt.iter, RATIO = opt.ratio, TRIALS = 4;
+  const rnd = new SplittableRandom(seedOf(lengths, vms));
+
+  const swarm = [];
+  const suf = sufferage(lengths, vms);
+  swarm.push({ pos:suf, fit:evaluate(suf, lengths, vms) });
+  const rr = roundRobin(lengths, vms);
+  swarm.push({ pos:rr.slice(), fit:evaluate(rr, lengths, vms) });
+  while (swarm.length < SWARM){
+    const p = new Array(lengths.length);
+    for (let i=0;i<p.length;i++) p[i] = rnd.nextInt(vms.length);
+    swarm.push({ pos:p, fit:evaluate(p, lengths, vms) });
+  }
+
+  let gb = { pos:swarm[0].pos.slice(), fit:swarm[0].fit };
+  for (const c of swarm) if (c.fit < gb.fit) gb = { pos:c.pos.slice(), fit:c.fit };
+
+  const kurva = [];
+  for (let it=0; it<ITER; it++){
+    for (const cat of swarm){
+      if (rnd.nextDouble() < RATIO){
+        let best = { pos:cat.pos.slice(), fit:cat.fit };
+        for (let tr=0; tr<TRIALS; tr++){
+          const cand = cat.pos.slice();
+          const changes = 1 + rnd.nextInt(Math.max(1, Math.floor(cand.length/20) + 1));
+          for (let i=0;i<changes;i++){
+            cand[rnd.nextInt(cand.length)] = rnd.nextInt(vms.length);
+          }
+          const f = evaluate(cand, lengths, vms);
+          if (f < best.fit) best = { pos:cand, fit:f };
+        }
+        cat.pos = best.pos; cat.fit = best.fit;
+      } else {
+        const p = cat.pos;
+        for (let i=0;i<p.length;i++){
+          if (p[i] !== gb.pos[i] && rnd.nextDouble() < 0.45) p[i] = gb.pos[i];
+          else if (rnd.nextDouble() < 0.05) p[i] = rnd.nextInt(vms.length);
+        }
+        cat.fit = evaluate(p, lengths, vms);
+      }
+      if (cat.fit < gb.fit) gb = { pos:cat.pos.slice(), fit:cat.fit };
+    }
+    kurva.push(gb.fit);
+  }
+  return { pos:gb.pos, fitness:gb.fit, kurva };
+}
+
+function simulate(pos, lengths, vms){
+  const ready = vms.map(v => new Array(v.pes).fill(0));
+  const beban = vms.map(()=>0), jumlah = vms.map(()=>0), mi = vms.map(()=>0);
+  let makespan = 0, totalArt = 0;
+  for (let t=0;t<lengths.length;t++){
+    const v = pos[t], slots = ready[v];
+    let s = 0;
+    for (let i=1;i<slots.length;i++) if (slots[i] < slots[s]) s = i;
+    const mulai = slots[s];
+    const selesai = mulai + lengths[t] / vms[v].mips;
+    slots[s] = selesai;
+    beban[v] += selesai - mulai;
+    jumlah[v]++; mi[v] += lengths[t];
+    totalArt += selesai;
+    if (selesai > makespan) makespan = selesai;
+  }
+  const bMax = Math.max(...beban), bMin = Math.min(...beban);
+  const bAvg = beban.reduce((a,b)=>a+b,0) / beban.length;
+  const totalPes = vms.reduce((a,v)=>a+v.pes,0);
+  const totalCpu = beban.reduce((a,b)=>a+b,0);
+  return {
+    makespan,
+    di: bAvg === 0 ? 0 : (bMax-bMin)/bAvg,
+    ru: makespan === 0 ? 0 : (totalCpu/(totalPes*makespan))*100,
+    throughput: makespan === 0 ? 0 : lengths.length/makespan,
+    art: totalArt/lengths.length,
+    beban, jumlah, mi
+  };
+}
+
+/* ============================================================
+   UI helpers
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const fmt = (x,d=4) => Number(x).toFixed(d).replace('.',',');
+const fmt2 = (x,d=2) => Number(x).toFixed(d).replace('.',',');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* --- highlight Java untuk potongan kode --- */
+const SNIPPETS = {
+p1:`private static final int SWARM_SIZE = 24;
+private static final int ITERATIONS = 35;
+private static final double SEEKING_RATIO = 0.70;
+private static final int SEEKING_TRIALS = 4;
+
+// 1) kucing pertama: hasil heuristik Sufferage
+int[] sufferageSeed = toPositions(
+        cloudlets, vmList,
+        SufferageScheduler.schedule(cloudlets, vmList));
+swarm.add(new Cat(sufferageSeed,
+        evaluate(sufferageSeed, cloudlets, vmList)));
+
+// 2) kucing kedua: baseline Round Robin
+int[] roundRobinSeed = new int[cloudlets.size()];
+for (int i = 0; i < roundRobinSeed.length; i++) {
+    roundRobinSeed[i] = i % vmList.size();
+}
+swarm.add(new Cat(roundRobinSeed,
+        evaluate(roundRobinSeed, cloudlets, vmList)));
+
+// 3) sisanya posisi acak sampai populasi penuh
+while (swarm.size() < SWARM_SIZE) {
+    int[] position = randomPosition(cloudlets.size(), vmList.size(), random);
+    swarm.add(new Cat(position, evaluate(position, cloudlets, vmList)));
+}`,
+p2:`Cat globalBest = copyOf(bestOf(swarm));
+
+for (int iteration = 0; iteration < ITERATIONS; iteration++) {
+    for (Cat cat : swarm) {
+        if (random.nextDouble() < SEEKING_RATIO) {
+            seek(cat, cloudlets, vmList, random);          // 70% eksplorasi
+        } else {
+            trace(cat, globalBest.position(), vmList.size(), random);
+            cat.setFitness(evaluate(cat.position(), cloudlets, vmList));
+        }
+        if (cat.fitness() < globalBest.fitness()) {
+            globalBest = copyOf(cat);                     // elitisme
+        }
+    }
+}
+
+return toAssignment(globalBest.position(), cloudlets, vmList);`,
+p3:`private static void seek(Cat cat, List<Cloudlet> cloudlets,
+                          List<Vm> vmList, SplittableRandom random) {
+    Cat bestCandidate = copyOf(cat);
+    for (int trial = 0; trial < SEEKING_TRIALS; trial++) {
+        int[] candidatePosition = cat.position().clone();
+
+        // jumlah elemen yang diacak: 1 .. (n / 20 + 1)
+        int changes = 1 + random.nextInt(
+                Math.max(1, candidatePosition.length / 20 + 1));
+
+        for (int i = 0; i < changes; i++) {
+            int task = random.nextInt(candidatePosition.length);
+            candidatePosition[task] = random.nextInt(vmList.size());
+        }
+
+        double fitness = evaluate(candidatePosition, cloudlets, vmList);
+        if (fitness < bestCandidate.fitness()) {
+            bestCandidate = new Cat(candidatePosition, fitness);
+        }
+    }
+    cat.setPosition(bestCandidate.position());
+    cat.setFitness(bestCandidate.fitness());
+}`,
+p4:`private static void trace(Cat cat, int[] globalBest, int vmCount,
+                          SplittableRandom random) {
+    int[] position = cat.position();
+    for (int i = 0; i < position.length; i++) {
+        if (position[i] != globalBest[i] && random.nextDouble() < 0.45) {
+            position[i] = globalBest[i];          // ikut global best
+        } else if (random.nextDouble() < 0.05) {
+            position[i] = random.nextInt(vmCount); // mutasi acak
+        }
+    }
+}`,
+p5:`private static double evaluate(int[] position, List<Cloudlet> cloudlets,
+                               List<Vm> vmList) {
+    List<double[]> readyTimes = new ArrayList<>(vmList.size());
+    for (Vm vm : vmList) {
+        // satu slot waktu per PE -> VM 4 PE bisa jalan 4 task sekaligus
+        readyTimes.add(new double[Math.toIntExact(vm.getPesNumber())]);
+    }
+
+    double makespan = 0;
+    for (int task = 0; task < cloudlets.size(); task++) {
+        Vm vm = vmList.get(position[task]);
+        double[] slots = readyTimes.get(position[task]);
+
+        int slot = 0;
+        for (int i = 1; i < slots.length; i++) {
+            if (slots[i] < slots[slot]) slot = i;   // slot paling cepat kosong
+        }
+
+        double finish = slots[slot]
+                + cloudlets.get(task).getLength() / vm.getMips();
+        slots[slot] = finish;
+        makespan = Math.max(makespan, finish);
+    }
+    return makespan;
+}`,
+p6:`private static long seed(List<Cloudlet> cloudlets, List<Vm> vmList) {
+    long seed = 0x9E3779B97F4A7C15L ^ cloudlets.size();
+    for (Cloudlet cloudlet : cloudlets) seed = seed * 31 + cloudlet.getLength();
+    for (Vm vm : vmList) seed = seed * 31 + vm.getPesNumber();
+    return seed;
+}
+
+private static void validateInput(List<Cloudlet> cloudlets, List<Vm> vmList) {
+    if (cloudlets == null || vmList == null || vmList.isEmpty()) {
+        throw new IllegalArgumentException("Cloudlet dan VM tidak boleh null, VM minimal satu");
+    }
+    for (Vm vm : vmList) {
+        if (vm.getPesNumber() <= 0 || vm.getMips() <= 0) {
+            throw new IllegalArgumentException("VM harus memiliki MIPS dan PE positif");
+        }
+    }
+}`
+};
+
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const TOKEN = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\])*")|\b(public|private|protected|static|final|class|record|new|return|if|else|for|while|void|int|double|long|boolean|true|false|null|this|throw|try|catch|import|package)\b|\b(0x[0-9a-fA-F_]+[Ll]?|\d[\d_]*\.?\d*[LlFfDd]?)\b/g;
+function highlightJava(src){
+  let out = '', last = 0, m;
+  TOKEN.lastIndex = 0;
+  while ((m = TOKEN.exec(src))){
+    out += esc(src.slice(last, m.index));
+    const t = m[0];
+    if (m[1]) out += '<span class="cm">' + esc(t) + '</span>';
+    else if (m[2]) out += '<span class="st">' + esc(t) + '</span>';
+    else if (m[3]) out += '<span class="kw">' + esc(t) + '</span>';
+    else out += '<span class="nu">' + esc(t) + '</span>';
+    last = m.index + t.length;
+  }
+  return out + esc(src.slice(last));
+}
+$$('pre.code').forEach(pre => {
+  const key = pre.getAttribute('data-code');
+  if (SNIPPETS[key]) pre.innerHTML = highlightJava(SNIPPETS[key]);
+});
+
+/* --- contoh posisi di bagian konsep --- */
+const CONTOH = [0,0,1,2,1,0,2,1,0,2,1,1,0,2,0,1,2,2,0,1];
+$('#posviz').innerHTML = CONTOH.map((v,i)=>
+  `<div class="cell v${v}" data-i="t${i}">${v}</div>`).join('');
+
+/* --- tabs --- */
+$('#codetabs').addEventListener('click', e => {
+  const b = e.target.closest('.tab');
+  if (!b) return;
+  $$('#codetabs .tab').forEach(t => t.classList.toggle('on', t === b));
+  $$('.pane').forEach(p => p.classList.toggle('on', p.id === b.dataset.pane));
+});
+
+/* --- nav active --- */
+const navLinks = $$('.nav a');
+const secs = navLinks.map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+if ('IntersectionObserver' in window){
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (!en.isIntersecting) return;
+      navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + en.target.id));
+    });
+  }, { rootMargin:'-45% 0px -50% 0px' });
+  secs.forEach(s => io.observe(s));
+}
+
+/* ============================================================
+   Chart utilities
+   ============================================================ */
+function fit(cv){
+  const dpr = window.devicePixelRatio || 1;
+  const r = cv.getBoundingClientRect();
+  if (r.width < 10) return null;
+  cv.width = Math.round(r.width * dpr);
+  cv.height = Math.round(r.height * dpr);
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,r.width,r.height);
+  return { ctx, w:r.width, h:r.height };
+}
+function niceTicks(min, max, n){
+  if (max === min){ max = min + 1; }
+  const raw = (max - min) / n;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1,2,2.5,5,10].map(k=>k*mag).find(v=>v >= raw) || 10*mag;
+  const lo = Math.floor(min/step)*step;
+  const hi = Math.ceil(max/step)*step;
+  const ticks = [];
+  for (let v=lo; v<=hi+1e-9; v+=step) ticks.push(v);
+  return { lo, hi, ticks };
+}
+
+let lastCurve = null, lastSim = null, lastConvMsg = null;
+
+function drawConvergence(curve, msg){
+  const cv = $('#cvConv');
+  const c = fit(cv); if (!c) return;
+  const { ctx, w, h } = c;
+  if (!curve || !curve.length){
+    ctx.fillStyle = '#5f7794'; ctx.font = '12px ui-sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(msg || 'Belum ada data', w/2, h/2);
+    return;
+  }
+  const pad = { l:56, r:12, t:14, b:26 };
+  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const min = Math.min(...curve), max = Math.max(...curve);
+  const { lo, hi, ticks } = niceTicks(min, max, 4);
+  const X = i => pad.l + (curve.length === 1 ? iw/2 : i/(curve.length-1)*iw);
+  const Y = v => pad.t + ih - (v - lo)/(hi - lo)*ih;
+
+  ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#6f8099'; ctx.font = '10px ui-monospace'; ctx.textAlign = 'right';
+  ticks.forEach(t => {
+    const y = Y(t);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    ctx.fillText(t >= 1000 ? t.toFixed(0) : t.toFixed(1), pad.l - 8, y + 3);
+  });
+  ctx.textAlign = 'center';
+  const stepX = Math.max(1, Math.ceil(curve.length/6));
+  for (let i=0;i<curve.length;i+=stepX){
+    ctx.fillText('#' + (i+1), X(i), h - 8);
+  }
+
+  const g = ctx.createLinearGradient(0, pad.t, 0, pad.t + ih);
+  g.addColorStop(0, 'rgba(58,226,207,.28)');
+  g.addColorStop(1, 'rgba(58,226,207,0)');
+  ctx.beginPath();
+  ctx.moveTo(X(0), Y(curve[0]));
+  curve.forEach((v,i) => ctx.lineTo(X(i), Y(v)));
+  ctx.lineTo(X(curve.length-1), pad.t + ih);
+  ctx.lineTo(X(0), pad.t + ih);
+  ctx.closePath(); ctx.fillStyle = g; ctx.fill();
+
+  ctx.beginPath();
+  curve.forEach((v,i) => i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v)));
+  ctx.strokeStyle = '#3ae2cf'; ctx.lineWidth = 2; ctx.stroke();
+
+  const lx = X(curve.length-1), ly = Y(curve[curve.length-1]);
+  ctx.beginPath(); ctx.arc(lx, ly, 3.5, 0, Math.PI*2);
+  ctx.fillStyle = '#3ae2cf'; ctx.fill();
+  ctx.fillStyle = '#a9f7ee'; ctx.font = '10.5px ui-monospace'; ctx.textAlign = 'right';
+  ctx.fillText(curve[curve.length-1].toFixed(1) + ' s', lx - 6, ly - 8);
+}
+
+function drawVmBars(res, vms){
+  const cv = $('#cvVm');
+  const c = fit(cv); if (!c) return;
+  const { ctx, w, h } = c;
+  if (!res || !res.beban){
+    ctx.fillStyle = '#5f7794'; ctx.font = '12px ui-sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Belum ada data', w/2, h/2);
+    return;
+  }
+  const pad = { l:52, r:10, t:14, b:26 };
+  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const maxBeban = Math.max(...res.beban) * 1.08;
+  const { lo, hi, ticks } = niceTicks(0, maxBeban, 4);
+  const Y = v => pad.t + ih - (v - lo)/(hi - lo)*ih;
+  const bw = iw / vms.length;
+
+  ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1;
+  ctx.fillStyle = '#6f8099'; ctx.font = '10px ui-monospace'; ctx.textAlign = 'right';
+  ticks.forEach(t => {
+    const y = Y(t);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    ctx.fillText(t.toFixed(0), pad.l - 8, y + 3);
+  });
+
+  const colors = ['#3ae2cf','#8d7dff','#ffbe5c'];
+  res.beban.forEach((b,i) => {
+    const x = pad.l + i*bw + bw*0.16;
+    const bh = Math.max(1, pad.t + ih - Y(b));
+    ctx.fillStyle = colors[vms[i].tipe];
+    ctx.globalAlpha = .85;
+    ctx.beginPath();
+    const r = Math.min(3, bw*0.16);
+    ctx.roundRect ? ctx.roundRect(x, Y(b), bw*0.68, bh, [r,r,0,0]) : ctx.rect(x, Y(b), bw*0.68, bh);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#6f8099'; ctx.font = '8.5px ui-monospace'; ctx.textAlign = 'center';
+    ctx.fillText(String(i).padStart(2,'0'), x + bw*0.34, h - 8);
+  });
+}
+
+function drawRecorded(){
+  const cv = $('#cvRec');
+  const c = fit(cv); if (!c) return;
+  const { ctx, w, h } = c;
+  const rows = DATA.recorded;
+  if (!rows.length) return;
+  const pad = { l:56, r:12, t:14, b:28 };
+  const iw = w - pad.l - pad.r, ih = h - pad.t - pad.b;
+  const series = [
+    { key:'Cat Swarm Optimization', color:'#3ae2cf', label:'CSO' },
+    { key:'Sufferage (LBMM)', color:'#8d7dff', label:'Sufferage' },
+    { key:'Round Robin (baseline)', color:'#ffbe5c', label:'Round Robin' }
+  ];
+  const pts = {};
+  series.forEach(s => {
+    pts[s.key] = SIZES.map(n => {
+      const r = rows.find(x => x.size === n && x.algo === s.key);
+      return r ? r.makespan : null;
+    });
+  });
+  const all = Object.values(pts).flat().filter(v => v != null);
+  const { lo, hi, ticks } = niceTicks(0, Math.max(...all), 4);
+  const X = i => pad.l + (SIZES.length === 1 ? iw/2 : i/(SIZES.length-1)*iw);
+  const Y = v => pad.t + ih - (v - lo)/(hi - lo)*ih;
+
+  ctx.strokeStyle = 'rgba(255,255,255,.07)';
+  ctx.fillStyle = '#6f8099'; ctx.font = '10px ui-monospace'; ctx.textAlign = 'right';
+  ticks.forEach(t => {
+    const y = Y(t);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    ctx.fillText(t.toFixed(0), pad.l - 8, y + 3);
+  });
+  ctx.textAlign = 'center';
+  SIZES.forEach((n,i) => { if (i % 2 === 0) ctx.fillText(n, X(i), h - 8); });
+
+  series.forEach(s => {
+    const arr = pts[s.key];
+    ctx.beginPath();
+    let started = false;
+    arr.forEach((v,i) => {
+      if (v == null) return;
+      if (!started){ ctx.moveTo(X(i), Y(v)); started = true; }
+      else ctx.lineTo(X(i), Y(v));
+    });
+    ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.lineJoin='round'; ctx.stroke();
+    arr.forEach((v,i) => {
+      if (v == null) return;
+      ctx.beginPath(); ctx.arc(X(i), Y(v), 2.6, 0, Math.PI*2);
+      ctx.fillStyle = s.color; ctx.fill();
+    });
+  });
+}
+
+/* ============================================================
+   Panel simulasi
+   ============================================================ */
+const termEl = $('#term');
+const runBtn = $('#run');
+const csvBtn = $('#csv');
+const statusEl = $('#status');
+const statusTxt = $('#statusTxt');
+
+const dsSel = $('#ds');
+SIZES.forEach(n => {
+  const o = document.createElement('option');
+  o.value = n; o.textContent = `GoCJ_Dataset_${n}.txt · ${n} task`;
+  dsSel.appendChild(o);
+});
+dsSel.value = 1000;
+
+const sl = (id, out, fmtFn) => {
+  const i = $('#'+id), o = $('#'+out);
+  const upd = () => { o.textContent = fmtFn ? fmtFn(i.value) : i.value; };
+  i.addEventListener('input', upd); upd();
+  return i;
+};
+const iSwarm = sl('i_swarm','o_swarm');
+const iIter  = sl('i_iter','o_iter');
+const iRatio = sl('i_ratio','o_ratio', v => (v/100).toFixed(2).replace('.',','));
+
+let running = false;
+let lastResults = [];
+
+function setStatus(kind, txt){
+  statusEl.className = 'status' + (kind ? ' ' + kind : '');
+  statusTxt.textContent = txt;
+}
+
+function termClear(){
+  termEl.innerHTML = '';
+}
+function termLine(html, cls){
+  const d = document.createElement('div');
+  d.className = 'ln' + (cls ? ' ' + cls : '');
+  d.innerHTML = html;
+  termEl.appendChild(d);
+  termEl.scrollTop = termEl.scrollHeight;
+  return d;
+}
+function num(v, d=4){ return `<span class="tnum">${fmt(v,d)}</span>`; }
+
+const ALGO_META = {
+  CSO: { label:'Cat Swarm Optimization', short:'CSO', color:'var(--cyan)', hex:'#3ae2cf' },
+  SUF: { label:'Sufferage (LBMM)', short:'Sufferage', color:'var(--violet)', hex:'#8d7dff' },
+  RR:  { label:'Round Robin (baseline)', short:'Round Robin', color:'var(--amber)', hex:'#ffbe5c' }
+};
+
+function recordedFor(size, key){
+  const name = key === 'CSO' ? 'Cat Swarm Optimization'
+             : key === 'SUF' ? 'Sufferage (LBMM)' : 'Round Robin (baseline)';
+  return DATA.recorded.find(r => r.size === size && r.algo === name) || null;
+}
+
+async function jalankan(){
+  if (running) return;
+
+  const dipilih = $$('.algo:checked').map(c => c.value);
+  if (!dipilih.length){
+    setStatus('', 'Pilih minimal satu algoritma');
+    return;
+  }
+
+  running = true;
+  runBtn.disabled = true;
+  csvBtn.disabled = true;
+  setStatus('run', JAVA.ok ? 'Menjalankan CloudSim Plus…' : 'Menjalankan simulasi…');
+  termClear();
+  lastResults = [];
+
+  const size = Number(dsSel.value);
+  const opt = {
+    swarm: Number(iSwarm.value),
+    iter: Number(iIter.value),
+    ratio: Number(iRatio.value)/100
+  };
+
+  try {
+    if (JAVA.ok) await runJava(size, dipilih);
+    else await runBrowser(size, dipilih, opt);
+  } catch (err){
+    termLine('ERROR: ' + (err && err.message ? err.message : String(err)), 'bad');
+    setStatus('', 'Gagal dijalankan');
+  }
+
+  running = false;
+  runBtn.disabled = false;
+}
+
+async function runBrowser(size, dipilih, opt){
+  const lengths = DATA.datasets[size];
+  const vms = buildVms();
+
+  /* --- header konfigurasi --- */
+  termLine('$ java -jar target/soka-simulasi.jar --demo', 'cmd');
+  termLine('# dijalankan mesin browser (port 1:1 dari source Java) — bukan JVM', 'dim');
+  await sleep(120);
+  termLine('=============== KONFIGURASI INFRASTRUKTUR ===============', 'head');
+  await sleep(60);
+  termLine('CloudSim Plus: 2 datacenter, masing-masing 5 host');
+  termLine('Total: 10 host dan 20 VM');
+  termLine('Dataset: GoCJ_Dataset_' + size + '.txt (' + size + ' cloudlet)');
+  if (opt.swarm !== 24 || opt.iter !== 35 || opt.ratio !== 0.70){
+    termLine(`Parameter diubah: swarm=${opt.swarm}, iterasi=${opt.iter}, seeking=${opt.ratio.toFixed(2)}`, 'warn');
+  }
+  termLine('===========================================================', 'head');
+  termLine('');
+  await sleep(160);
+
+  /* --- jalankan tiap algoritma --- */
+  for (const key of dipilih){
+    const meta = ALGO_META[key];
+    termLine(`================ DATASET: GoCJ_Dataset_${size}.txt ================`, 'head');
+    await sleep(80);
+
+    const t0 = performance.now();
+    let pos, extra = null;
+    if (key === 'CSO'){
+      const r = cso(lengths, vms, opt);
+      pos = r.pos; extra = r;
+    } else if (key === 'SUF'){
+      pos = sufferage(lengths, vms);
+    } else {
+      pos = roundRobin(lengths, vms);
+    }
+    const schedMs = performance.now() - t0;
+
+    const sim = simulate(pos, lengths, vms);
+    const hasil = { key, meta, pos, sim, schedMs, extra };
+    lastResults.push(hasil);
+
+    /* distribusi assignment */
+    termLine(`Assignment ${meta.label} [GoCJ_Dataset_${size}.txt]:`, 'key');
+    for (let i=0;i<vms.length;i++){
+      termLine(`  VM-${String(i).padStart(2,'0')} (${vms[i].mips} MIPS, ${vms[i].pes} PE): `
+        + `${sim.jumlah[i]} task, ${sim.mi[i].toLocaleString('en-US').replace(/,/g,'.')} MI`);
+      if (i % 5 === 4) await sleep(16);
+    }
+    await sleep(40);
+
+    termLine('');
+    termLine(`>>> Menjalankan ${meta.label}`, 'ok');
+    await sleep(90);
+    termLine(`Cloudlet selesai: ${size} dari ${size}`);
+    await sleep(60);
+    termLine(`Makespan          = ${num(sim.makespan)} s`);
+    termLine(`Degree of Imbalance = ${num(sim.di)}`);
+    termLine(`Resource Utilization= ${num(sim.ru,2)} %`);
+    termLine(`Throughput        = ${num(sim.throughput)} cloudlet/s`);
+    termLine(`Avg Response Time = ${num(sim.art)} s`);
+    termLine(`Waktu scheduling  = ${num(schedMs,1)} ms`, 'dim');
+    const rec = recordedFor(size, key);
+    if (rec){
+      termLine(`Tercatat CloudSim = ${num(rec.makespan)} s  (Δ ${num(sim.makespan - rec.makespan)} s)`, 'dim');
+    }
+    termLine('');
+  }
+
+  /* --- ringkasan --- */
+  const best = lastResults.reduce((a,b) => b.sim.makespan < a.sim.makespan ? b : a);
+  termLine('================ RINGKASAN ================', 'head');
+  lastResults.forEach(r => {
+    termLine(`  ${r.meta.short.padEnd(12,' ')} makespan ${num(r.sim.makespan)} s`
+      + `   sched ${num(r.schedMs,1)} ms`, r === best ? 'ok' : '');
+  });
+  termLine('');
+  termLine(`Algoritma terbaik: ${best.meta.label} (makespan ${num(best.sim.makespan)} s)`, 'ok');
+
+  /* --- render panel --- */
+  renderKpi(best);
+  renderCompare(size, lastResults);
+  renderMap(best);
+  lastCurve = best.extra ? best.extra.kurva : null;
+  lastSim = best;
+  drawConvergence(lastCurve);
+  drawVmBars(best.sim, vms);
+  $('#convNote').textContent = best.extra ? `${best.extra.kurva.length} iterasi` : 'CSO tidak dipilih';
+  $('#vmNote').textContent = `${best.meta.short} · detik eksekusi`;
+
+  csvBtn.disabled = false;
+  setStatus('done', `Selesai · ${best.meta.short} unggul`);
+}
+
+function renderKpi(r){
+  $('#k_make').innerHTML = fmt(r.sim.makespan) + '<small>s</small>';
+  $('#k_di').innerHTML = fmt(r.sim.di);
+  $('#k_ru').innerHTML = fmt(r.sim.ru,2) + '<small>%</small>';
+  $('#k_thr').innerHTML = fmt(r.sim.throughput) + '<small>t/s</small>';
+  $('#k_art').innerHTML = fmt(r.sim.art) + '<small>s</small>';
+  if (r.source === 'java'){
+    $('#k_sched_lbl').textContent = 'Waktu proses';
+    $('#k_sched').innerHTML = fmt(r.procMs,0) + '<small>ms</small>';
+  } else {
+    $('#k_sched_lbl').textContent = 'Scheduling';
+    $('#k_sched').innerHTML = fmt(r.schedMs,1) + '<small>ms</small>';
+  }
+}
+
+function renderCompare(size, results){
+  const tbody = $('#cmpTable tbody');
+  const bestMs = Math.min(...results.map(r => r.sim.makespan));
+  tbody.innerHTML = results.map(r => {
+    const rec = recordedFor(size, r.key);
+    const delta = rec ? r.sim.makespan - rec.makespan : null;
+    return '<tr>'
+      + `<td style="color:${r.meta.hex};font-family:inherit">${r.meta.label}</td>`
+      + `<td class="${r.sim.makespan === bestMs ? 'best' : ''}">${fmt(r.sim.makespan)}</td>`
+      + `<td>${fmt(r.sim.di)}</td>`
+      + `<td>${fmt(r.sim.ru,2)}</td>`
+      + `<td>${fmt(r.sim.throughput)}</td>`
+      + `<td>${fmt(r.sim.art)}</td>`
+      + `<td>${rec ? fmt(rec.makespan) : '—'}</td>`
+      + `<td style="color:${delta != null && Math.abs(delta) < 0.02*rec.makespan ? 'var(--green)' : 'var(--muted)'}">`
+      + (delta == null ? '—' : (delta >= 0 ? '+' : '') + fmt(delta,3)) + '</td>'
+      + '</tr>';
+  }).join('');
+
+  const maxMs = Math.max(...results.map(r => r.sim.makespan));
+  $('#cmpBars').innerHTML = results.map(r => `
+    <div class="cmprow">
+      <span class="name">${r.meta.short}</span>
+      <span class="barbg"><span class="bar" data-w="${(r.sim.makespan/maxMs*100).toFixed(1)}" style="background:${r.meta.hex}"></span></span>
+      <span class="n">${fmt2(r.sim.makespan,1)} s</span>
+    </div>`).join('');
+  requestAnimationFrame(() => {
+    $$('#cmpBars .bar').forEach(b => { b.style.width = b.dataset.w + '%'; });
+  });
+}
+
+function renderMap(best){
+  const n = Math.min(60, best.pos.length);
+  $('#map').innerHTML = best.pos.slice(0, n).map((v,i) =>
+    `<span class="sq v${buildVms()[v].tipe}" title="task ${i} → VM ${v}"></span>`).join('')
+    + `<span style="margin-left:8px;font-size:11.5px;color:var(--muted-2);font-family:var(--mono)">${best.meta.short} · ${n}/${best.pos.length} task</span>`;
+  $('#mapNote').textContent = `${n} task pertama`;
+}
+
+function reset(){
+  if (running) return;
+  termClear();
+  termLine('Klik “Jalankan Simulasi” untuk memulai. Output akan muncul di sini seperti console Java.', 'dim');
+  ['k_make','k_di','k_ru','k_thr','k_art','k_sched'].forEach(id => { $('#'+id).innerHTML = '—'; });
+  $('#cmpTable tbody').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted-2);font-family:inherit">Belum ada hasil — jalankan simulasi dulu.</td></tr>';
+  $('#cmpBars').innerHTML = '';
+  $('#map').innerHTML = '<span class="ln dim" style="font-size:12px">Belum ada hasil.</span>';
+  $('#convNote').textContent = 'fitness global best / iterasi';
+  $('#vmNote').textContent = 'detik eksekusi';
+  lastCurve = null; lastSim = null; lastConvMsg = null; lastResults = [];
+  csvBtn.disabled = true;
+  setStatus('', JAVA.ok ? 'Siap — tombol menjalankan JVM asli' : 'Siap dijalankan');
+  drawConvergence(null);
+  drawVmBars(null, buildVms());
+}
+
+function unduhCsv(){
+  if (!lastResults.length) return;
+  const head = 'algorithm,makespan,di,ru,throughput,art,sched_ms';
+  const body = lastResults.map(r => [
+    r.meta.label, r.sim.makespan.toFixed(4), r.sim.di.toFixed(4), r.sim.ru.toFixed(4),
+    r.sim.throughput.toFixed(4), r.sim.art.toFixed(4), r.schedMs.toFixed(2)
+  ].join(',')).join('\n');
+  const blob = new Blob([head + '\n' + body + '\n'], { type:'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `hasil-simulasi-gocj-${dsSel.value}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* ============================================================
+   MODE CLOUDSIM ASLI (Java) — aktif bila dibuka lewat cloudsim-server.js
+   ============================================================ */
+
+function escapeHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function barisJava(raw){
+  const t = String(raw).replace(/\s+$/,'');
+  if (!t) return ['', ''];
+  let cls = '';
+  if (/^=+/.test(t)) cls = 'head';
+  else if (/^Assignment /.test(t)) cls = 'key';
+  else if (/^>>> /.test(t)) cls = 'ok';
+  else if (/^(Makespan|Degree of Imbalance|Resource Utilization|Throughput|Avg\. Response|Jumlah VM|Cloudlet selesai)/.test(t)) cls = 'key';
+  else if (/^  VM-\d\d ->/.test(t)) cls = 'dim';
+  else if (/^(Alokasi VM|Host per|VM dan datacenter|  DC\d|    Host-)/.test(t)) cls = 'dim';
+
+  let html = escapeHtml(t);
+  if (cls === 'key' || /^\s+VM-\d\d \(/.test(t)){
+    html = html.replace(/\d[\d.,]*/g, m => '<span class="tnum">' + m + '</span>');
+  }
+  return [html, cls];
+}
+
+function toNum(s){
+  const t = String(s).trim();
+  if (/^\d+,\d{1,3}$/.test(t) && !/^\d{1,3}(\.\d{3})+/.test(t)) return Number(t.replace(',', '.'));
+  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) return Number(t.replace(/\./g,'').replace(',', '.'));
+  return Number(t.replace(/,/g,''));
+}
+
+function parseJavaOutput(text){
+  const lines = String(text).split(/\r?\n/);
+  const blocks = [];
+  let cur = null, hasil = null, m;
+
+  for (const raw of lines){
+    const line = raw.trim();
+    if ((m = line.match(/^Assignment (.+?) \[(.+?)\]:$/))){
+      cur = { algo: m[1], vms: [] };
+      blocks.push(cur);
+      continue;
+    }
+    if (cur && (m = line.match(/^VM-(\d+) \((\d+) MIPS, (\d+) PE\): (\d+) task, ([\d.,]+) MI$/))){
+      cur.vms.push({ id:+m[1], mips:+m[2], pes:+m[3], task:+m[4], mi: toNum(m[5]) });
+      continue;
+    }
+    if ((m = line.match(/^================ HASIL: (.+?) =+$/))){
+      hasil = blocks.find(b => b.algo === m[1]) || null;
+      continue;
+    }
+    if (hasil){
+      if ((m = line.match(/^Makespan\s*:\s*([\d.,]+)/))) hasil.makespan = toNum(m[1]);
+      else if ((m = line.match(/^Degree of Imbalance\(DI\):\s*([\d.,]+)/))) hasil.di = toNum(m[1]);
+      else if ((m = line.match(/^Resource Utilization\s*:\s*([\d.,]+)/))) hasil.ru = toNum(m[1]);
+      else if ((m = line.match(/^Throughput\s*:\s*([\d.,]+)/))) hasil.throughput = toNum(m[1]);
+      else if ((m = line.match(/^Avg\. Response Time\s*:\s*([\d.,]+)/))) hasil.art = toNum(m[1]);
+      else if (/^=+$/.test(line)) hasil = null;
+    }
+  }
+  return blocks.filter(b => b.makespan != null && b.vms.length);
+}
+
+async function runJava(size, dipilih){
+  const dsName = 'GoCJ_Dataset_' + size + '.txt';
+  termLine('$ java -jar target/soka-simulasi.jar --run ' + dsName, 'cmd');
+  termLine('# menunggu JVM + CloudSim Plus di laptop ini…', 'dim');
+
+  const res = await fetch('/api/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataset: dsName })
+  });
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error || ('Java keluar dengan kode ' + j.code));
+
+  termClear();
+  termLine('$ java -jar target/soka-simulasi.jar --run ' + dsName, 'cmd');
+  termLine('# output asli JVM · CloudSim Plus 8.5.4', 'dim');
+  const lines = String(j.stdout).split(/\r?\n/);
+  for (let i=0;i<lines.length;i++){
+    const [html, cls] = barisJava(lines[i]);
+    termLine(html, cls);
+    if (i % 8 === 7) await sleep(8);
+  }
+
+  const parsed = parseJavaOutput(j.stdout);
+  const vms = buildVms();
+  const judul = {
+    CSO: 'Cat Swarm Optimization',
+    SUF: 'Sufferage (LBMM)',
+    RR : 'Round Robin (baseline)'
+  };
+
+  lastResults = Object.keys(judul).map(key => {
+    const p = parsed.find(x => x.algo === judul[key]);
+    if (!p) return null;
+    return {
+      key, meta: ALGO_META[key], source: 'java', procMs: j.ms, schedMs: null, pos: null, extra: null,
+      sim: {
+        makespan: p.makespan, di: p.di, ru: p.ru, throughput: p.throughput, art: p.art,
+        beban: p.vms.map(v => v.mi / v.mips),
+        jumlah: p.vms.map(v => v.task),
+        mi: p.vms.map(v => v.mi)
+      }
+    };
+  }).filter(Boolean);
+
+  if (!lastResults.length) throw new Error('Output Java tidak bisa dibaca');
+
+  const best = lastResults.reduce((a,b) => b.sim.makespan < a.sim.makespan ? b : a);
+  termLine('');
+  termLine(`Selesai ${fmt(j.ms,0)} ms di laptop — ${best.meta.label} unggul (${fmt(best.sim.makespan)} s)`, 'ok');
+
+  renderKpi(best);
+  renderCompare(size, lastResults);
+
+  $('#mapNote').textContent = 'tidak tersedia';
+  $('#map').innerHTML = '<span class="ln dim" style="font-size:12px">Mode CloudSim asli hanya mengirim ringkasan per VM, bukan peta assignment.</span>';
+
+  lastSim = best;
+  lastCurve = null;
+  lastConvMsg = 'Kurva konvergensi hanya di mode browser';
+  drawConvergence(null, lastConvMsg);
+  drawVmBars(best.sim, vms);
+  $('#convNote').textContent = 'mode Java';
+  $('#vmNote').textContent = best.meta.short + ' · detik eksekusi';
+
+  csvBtn.disabled = false;
+  setStatus('done', 'Selesai · ' + best.meta.short + ' unggul (CloudSim)');
+}
+
+async function detectJava(){
+  const el = $('#engine'), txt = $('#engineTxt');
+  if (!window.SOKA_JAVA_BRIDGE){
+    JAVA.ok = false;
+    el.className = 'engine web';
+    txt.textContent = 'Mesin browser · offline';
+    return;
+  }
+  try {
+    const r = await fetch('/api/health', { cache: 'no-store' });
+    const j = await r.json();
+    if (j && j.ok && j.jar){
+      JAVA.ok = true; JAVA.info = j;
+      el.className = 'engine java';
+      txt.textContent = 'CloudSim Plus asli · Java 17';
+      $$('.algo').forEach(c => { c.checked = true; c.disabled = true; });
+      [$('#i_swarm'), $('#i_iter'), $('#i_ratio')].forEach(i => { i.disabled = true; });
+      const sum = document.querySelector('details.adv summary');
+      if (sum) sum.textContent = 'Parameter lanjutan (dikunci di mode Java)';
+      document.querySelector('details.adv').open = false;
+      const mn = document.querySelector('#methodNote');
+      if (mn) mn.innerHTML = 'Simulasi berjalan di <b>JVM asli</b> lewat <span class="mono">java -jar target/soka-simulasi.jar --run ...</span>. '
+        + 'Angka makespan, DI, RU, throughput, dan ART berasal dari CloudSim Plus 8.5.4 — bukan estimasi. '
+        + 'Kurva konvergensi dan peta assignment tidak dikirim oleh jar, jadi hanya tabel per-VM yang tampil.';
+      setStatus('', 'Siap — tombol menjalankan JVM asli');
+      return;
+    }
+  } catch (_) { /* file:// atau server tidak ada */ }
+  JAVA.ok = false;
+  el.className = 'engine web';
+  txt.textContent = 'Mesin browser · offline';
+}
+
+runBtn.addEventListener('click', jalankan);
+$('#reset').addEventListener('click', reset);
+csvBtn.addEventListener('click', unduhCsv);
+
+/* ============================================================
+   Tabel hasil tercatat + chart awal
+   ============================================================ */
+(function initRecorded(){
+  const order = ['Cat Swarm Optimization','Sufferage (LBMM)','Round Robin (baseline)'];
+  const tbody = $('#recTable tbody');
+  tbody.innerHTML = SIZES.map(n => {
+    const get = name => DATA.recorded.find(r => r.size === n && r.algo === name);
+    const c = get(order[0]), s = get(order[1]), r = get(order[2]);
+    if (!c || !r) return '';
+    const speed = (r.makespan / c.makespan).toFixed(2).replace('.', ',');
+    return `<tr><td>${n}</td><td class="best">${fmt(c.makespan,2)}</td>`
+      + `<td>${fmt(s ? s.makespan : 0,2)}</td><td>${fmt(r.makespan,2)}</td>`
+      + `<td style="color:var(--green)">${speed}×</td></tr>`;
+  }).join('');
+})();
+
+function redrawAll(){
+  drawRecorded();
+  drawVmBars(lastSim ? lastSim.sim : null, buildVms());
+  drawConvergence(lastCurve, lastConvMsg);
+}
+window.addEventListener('resize', () => {
+  clearTimeout(window.__rz);
+  window.__rz = setTimeout(redrawAll, 160);
+});
+if (window.ResizeObserver){
+  const ro = new ResizeObserver(() => redrawAll());
+  ro.observe($('#jalankan'));
+}
+
+/* render awal */
+redrawAll();
+drawConvergence(null);
+drawVmBars(null, buildVms());
+detectJava();
+
+})();
+</script>
+</body>
+</html>
