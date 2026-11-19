@@ -235,6 +235,54 @@
   td.best{color:var(--green); font-weight:700}
   .unit{color:var(--muted-2); font-size:11px}
 
+  /* ---------- pipeline / alur ---------- */
+  .pipeline{display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-top:18px}
+  .stage{
+    position:relative; border:1px solid var(--line); border-radius:14px; padding:14px;
+    background:linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
+  }
+  .stage:not(:last-child)::after{
+    content:"→"; position:absolute; right:-11px; top:46%; transform:translateY(-50%);
+    color:var(--muted-2); font-size:13px;
+  }
+  .stage .n{
+    width:22px;height:22px;border-radius:7px; display:grid;place-items:center; margin-bottom:9px;
+    font-family:var(--mono); font-size:11px; font-weight:700; color:#04140f;
+    background:linear-gradient(130deg,var(--cyan),var(--violet));
+  }
+  .stage h4{margin:0 0 5px; font-size:12.9px; letter-spacing:-.1px; line-height:1.35}
+  .stage p{margin:0; font-size:11.9px; color:var(--muted); line-height:1.55}
+  .stage code{font-size:11px; color:var(--cyan)}
+
+  .trace{display:grid; gap:0}
+  .trace .t{display:grid; grid-template-columns:27px 1fr; gap:12px; position:relative; padding-bottom:15px}
+  .trace .t:last-child{padding-bottom:0}
+  .trace .t:not(:last-child)::before{
+    content:""; position:absolute; left:13px; top:26px; bottom:3px; width:1px;
+    background:linear-gradient(180deg, rgba(58,226,207,.45), rgba(58,226,207,.05));
+  }
+  .trace .t .d{
+    width:26px;height:26px;border-radius:50%; display:grid;place-items:center;
+    font-family:var(--mono); font-size:10px; font-weight:700; color:#04140f;
+    background:linear-gradient(140deg,var(--cyan),#7ef0e2); position:relative; z-index:1;
+  }
+  .trace .t b{display:block; font-size:13.2px; margin-bottom:1px}
+  .trace .t > div > span{display:block; font-size:12.5px; color:var(--muted); line-height:1.6}
+  .trace .t > div > span .mono{display:inline}
+  .trace .t em{font-style:normal; font-family:var(--mono); font-size:12px; color:var(--txt)}
+
+  .sample{
+    font-family:var(--mono); font-size:12.3px; line-height:1.8; color:#cfe0f5;
+    background:#050a12; border:1px solid var(--line); border-radius:12px; padding:12px 16px; overflow:auto;
+    white-space:pre-wrap;
+  }
+  .sample .mi{color:#ffcf8b}
+  .sample .more{color:#5f7a99; font-style:italic}
+  .flowtable td{vertical-align:top}
+  .flowtable td.arrowc{color:var(--muted-2); text-align:center; width:26px}
+  .flowtable th, .flowtable td{text-align:left; white-space:normal}
+  .flowtable td:nth-child(2){font-family:var(--mono); font-size:12px; color:var(--cyan)}
+
   /* ---------- simulation ---------- */
   .simwrap{display:grid; grid-template-columns:334px minmax(0,1fr); gap:18px; align-items:start}
   .controls{position:sticky; top:76px; display:grid; gap:16px}
@@ -362,6 +410,8 @@
     .kpis{grid-template-columns:repeat(3,1fr)}
     .charts{grid-template-columns:1fr}
     .g3,.g4,.g2,.topo,.footgrid{grid-template-columns:1fr 1fr}
+    .pipeline{grid-template-columns:repeat(3,1fr)}
+    .stage::after{display:none}
   }
   @media (max-width:680px){
     .wrap{padding:0 15px}
@@ -378,6 +428,7 @@
   <div class="wrap">
     <div class="brand"><span class="dot"></span><span>SOKA<small>Kelompok 7</small></span></div>
     <nav class="nav">
+      <a href="#alur">Alur</a>
       <a href="#cso">CSO</a>
       <a href="#kode">Bedah Kode</a>
       <a href="#cloudsim">CloudSim</a>
@@ -397,8 +448,8 @@
     <p class="lead">
       Halaman ini menjelaskan cara kerja <b>Cat Swarm Optimization (CSO)</b> yang dipakai untuk memetakan
       cloudlet ke VM, membedah kode Java-nya baris per baris, lalu menjalankan simulasi
-      <b>CloudSim Plus</b> langsung di browser — lengkap dengan grafik konvergensi dan perbandingan
-      terhadap Sufferage serta Round Robin.
+      <b>CloudSim Plus</b> — lewat JVM asli di laptopmu atau mesin browser saat dibuka offline —
+      lengkap dengan grafik konvergensi dan perbandingan terhadap Sufferage serta Round Robin.
     </p>
     <div class="hero-cta">
       <a class="btn primary" href="#jalankan">▶ Jalankan Simulasi</a>
@@ -413,10 +464,191 @@
     </div>
   </section>
 
+  <!-- ================= ALUR ================= -->
+  <section id="alur">
+    <div class="sec-head">
+      <span class="kicker">01 — Alur lengkap</span>
+      <h2>Dari file dataset sampai angka makespan</h2>
+      <p>
+        Satu dataset masuk, melewati enam stasiun, dan keluar sebagai metrik + baris CSV.
+        Semua contoh angka di bawah memakai <span class="mono">GoCJ_Dataset_1000.txt</span>
+        yang benar-benar ada di repo — bukan ilustrasi karangan.
+      </p>
+    </div>
+
+    <div class="pipeline">
+      <div class="stage">
+        <div class="n">1</div>
+        <h4>File dataset</h4>
+        <p>Satu angka per baris, satuan <b>MI</b>. Satu baris = satu task. Ada 10 file, 100–1.000 task.</p>
+      </div>
+      <div class="stage">
+        <div class="n">2</div>
+        <h4>Loader</h4>
+        <p><code>bacaGoCJ()</code> membaca resource menjadi <code>List&lt;Long&gt;</code> berisi panjang tiap task.</p>
+      </div>
+      <div class="stage">
+        <div class="n">3</div>
+        <h4>Infrastruktur &amp; cloudlet</h4>
+        <p>10 host, 20 VM (44 PE). <code>buatCloudlet()</code> membuat 1.000 cloudlet, masing-masing 1 PE.</p>
+      </div>
+      <div class="stage">
+        <div class="n">4</div>
+        <h4>Scheduler CSO</h4>
+        <p>24 kucing × 35 iterasi memilih VM untuk tiap task → <code>Map&lt;Cloudlet,Vm&gt;</code>.</p>
+      </div>
+      <div class="stage">
+        <div class="n">5</div>
+        <h4>CloudSim</h4>
+        <p><code>bindCloudletToVm()</code> lalu <code>simulation.start()</code>: CloudletSchedulerSpaceShared mengantre per PE.</p>
+      </div>
+      <div class="stage">
+        <div class="n">6</div>
+        <h4>Metrik &amp; output</h4>
+        <p><code>hitungMetrik()</code> mengubah start/finish menjadi makespan, DI, RU, throughput, ART → console + CSV.</p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:18px; align-items:start">
+      <div class="card">
+        <h3 style="margin-bottom:12px">Jejak nyata: 1.000 task</h3>
+        <div class="trace">
+          <div class="t">
+            <div class="d">1</div>
+            <div><b>1.000 baris dibaca</b>
+              <span>Total <em>129.662.000 MI</em>, terkecil <em>15.000</em>, terbesar <em>900.000</em> (cloudlet #973).
+              Komposisi: Medium 110, Large 475, Extra Large 344, Huge 71.</span>
+            </div>
+          </div>
+          <div class="t">
+            <div class="d">2</div>
+            <div><b>1.000 cloudlet, 1 PE masing-masing</b>
+              <span>CPU <span class="mono">UtilizationModelFull</span>, RAM/BW <span class="mono">UtilizationModelDynamic(0.10)</span>.
+              Panjang cloudlet = nilai MI dari file.</span>
+            </div>
+          </div>
+          <div class="t">
+            <div class="d">3</div>
+            <div><b>20 VM heterogen, 44 PE</b>
+              <span>8 VM rendah (1 PE / 1.800 MIPS), 6 sedang (2 PE / 2.800), 6 tinggi (4 PE / 3.800).
+              VM-00…09 ke DC1, VM-10…19 ke DC2.</span>
+            </div>
+          </div>
+          <div class="t">
+            <div class="d">4</div>
+            <div><b>CSO menyusun assignment</b>
+              <span>Populasi di-seed Sufferage + Round Robin, lalu 24 kucing × 35 iterasi.
+              Hasilnya: VM-02 kebagian <em>82 task</em> (terbanyak), VM-03 hanya <em>20 task</em>.</span>
+            </div>
+          </div>
+          <div class="t">
+            <div class="d">5</div>
+            <div><b>CloudSim mengeksekusi</b>
+              <span>1.000 cloudlet selesai. Cloudlet #973 (900.000 MI di VM-12, 4 PE) adalah yang finis paling akhir —
+              sekitar <em>1082 s</em> di model slot, <em>1085,77 s</em> di CloudSim asli karena overhead event.</span>
+            </div>
+          </div>
+          <div class="t">
+            <div class="d">6</div>
+            <div><b>Metrik keluar</b>
+              <span>Makespan <em>1085,77 s</em>, DI <em>1,4394</em>, RU <em>86,13%</em>,
+              throughput <em>0,9210 task/s</em>, ART <em>478,69 s</em>, waktu scheduling <em>±190 ms</em>.</span>
+            </div>
+          </div>
+          <div class="t">
+            <div class="d">7</div>
+            <div><b>Disimpan &amp; dipakai halaman ini</b>
+              <span><span class="mono">results/raw/cso_gocj.csv</span> → <span class="mono">plot.py</span> →
+              <span class="mono">results/summary.csv</span> + PNG. Angka yang sama dipakai tabel “Hasil” di bawah.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-bottom:10px">Bentuk file dataset</h3>
+        <p><span class="mono">src/main/resources/Dataset_GoCJ/GoCJ_Dataset_1000.txt</span> — teks polos, tanpa header:</p>
+        <div class="sample" style="margin-top:10px"><span class="mi">83000</span>
+<span class="mi">95000</span>
+<span class="mi">91000</span>
+<span class="mi">81000</span>
+<span class="mi">27500</span>
+<span class="mi">49000</span>
+<span class="mi">103000</span>
+<span class="mi">95000</span>
+<span class="more">… total 1.000 baris</span></div>
+        <ul class="tick" style="margin-top:14px">
+          <li><b>Tiap baris = satu cloudlet.</b> Urutannya menentukan ID cloudlet (0…999), dan ID ini yang dipakai scheduler.</li>
+          <li><b>Nilainya panjang task dalam MI.</b> Waktu eksekusi = <span class="mono">MI ÷ MIPS</span>, jadi 83.000 MI di VM 3.800 MIPS ≈ 21,8 s.</li>
+          <li><b>Dataset sintetis</b> 1.000–10.000 task dibuat oleh <span class="mono">generateSynthetic(jumlah, seed, proporsi)</span> — alurnya sama persis, hanya sumber barisnya berbeda.</li>
+        </ul>
+        <div class="note" style="margin-top:14px">
+          <b>Kenapa 10 file?</b> Supaya efek ukuran dataset terlihat: 100 task sampai 1.000 task,
+          tiap ukuran dijalankan 3 kali untuk tiap algoritma, lalu dirata-rata menjadi satu baris di <span class="mono">summary.csv</span>.
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3 style="margin-bottom:12px">Dari file ke metrik</h3>
+      <div class="tablewrap">
+        <table class="flowtable">
+          <thead>
+            <tr><th>Tahap</th><th>Kode / file</th><th>Data yang berubah</th><th>Contoh 1.000 task</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-family:inherit">Baca dataset</td>
+              <td>SimulationRunner.bacaGoCJ()</td>
+              <td style="text-align:left;font-family:inherit">baris teks → List&lt;Long&gt;</td>
+              <td>1.000 elemen, 129.662.000 MI</td>
+            </tr>
+            <tr>
+              <td style="font-family:inherit">Bentuk cloudlet</td>
+              <td>buatCloudlet()</td>
+              <td style="text-align:left;font-family:inherit">panjang → CloudletSimple(id, MI, 1 PE)</td>
+              <td>1.000 cloudlet, 1 PE tiap cloudlet</td>
+            </tr>
+            <tr>
+              <td style="font-family:inherit">Siapkan infrastruktur</td>
+              <td>buatDatacenter() · buatVmHeterogen()</td>
+              <td style="text-align:left;font-family:inherit">parameter → host &amp; VM</td>
+              <td>10 host, 20 VM, 44 PE</td>
+            </tr>
+            <tr>
+              <td style="font-family:inherit">Penjadwalan</td>
+              <td>CatSwarmScheduler.schedule()</td>
+              <td style="text-align:left;font-family:inherit">cloudlet + VM → Map&lt;Cloudlet,Vm&gt;</td>
+              <td>24 kucing × 35 iterasi, ±190 ms</td>
+            </tr>
+            <tr>
+              <td style="font-family:inherit">Eksekusi</td>
+              <td>bindCloudletToVm() → simulation.start()</td>
+              <td style="text-align:left;font-family:inherit">assignment → start/finish tiap cloudlet</td>
+              <td>1.000 cloudlet selesai</td>
+            </tr>
+            <tr>
+              <td style="font-family:inherit">Hitung metrik</td>
+              <td>hitungMetrik() · MetricsCalculator</td>
+              <td style="text-align:left;font-family:inherit">start/finish → 5 metrik</td>
+              <td>1085,77 s · DI 1,4394 · RU 86,13%</td>
+            </tr>
+            <tr>
+              <td style="font-family:inherit">Simpan &amp; olah</td>
+              <td>results/raw/*.csv → plot.py</td>
+              <td style="text-align:left;font-family:inherit">3 run → rata-rata + grafik</td>
+              <td>summary.csv + 12 PNG</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= CSO ================= -->
   <section id="cso">
     <div class="sec-head">
-      <span class="kicker">01 — Konsep</span>
+      <span class="kicker">02 — Konsep</span>
       <h2>Cat Swarm Optimization dalam satu menit</h2>
       <p>
         CSO meniru dua kebiasaan kucing: <b>beristirahat sambil mengamati</b> (seeking) dan
@@ -494,7 +726,7 @@
   <!-- ================= KODE ================= -->
   <section id="kode">
     <div class="sec-head">
-      <span class="kicker">02 — Implementasi</span>
+      <span class="kicker">03 — Implementasi</span>
       <h2>Bedah kode <span class="mono" style="font-size:.72em;color:var(--cyan)">CatSwarmScheduler.java</span></h2>
       <p>Semua potongan di bawah diambil langsung dari source di repo — klik tab untuk berpindah bagian.</p>
     </div>
@@ -598,7 +830,7 @@
   <!-- ================= CLOUDSIM ================= -->
   <section id="cloudsim">
     <div class="sec-head">
-      <span class="kicker">03 — Infrastruktur</span>
+      <span class="kicker">04 — Infrastruktur</span>
       <h2>Simulasi CloudSim Plus</h2>
       <p>
         Scheduler hanya menghasilkan <i>rencana</i> penempatan. Eksekusi sebenarnya — boot VM,
@@ -713,7 +945,7 @@
   <!-- ================= JALANKAN ================= -->
   <section id="jalankan">
     <div class="sec-head">
-      <span class="kicker">04 — Live</span>
+      <span class="kicker">05 — Live</span>
       <h2>Jalankan simulasi</h2>
       <p>
         Ada dua mesin. Kalau halaman dibuka lewat <span class="mono">jalankan-cloudsim.bat</span>, tombol di bawah
@@ -839,7 +1071,7 @@
   <!-- ================= HASIL ================= -->
   <section id="hasil">
     <div class="sec-head">
-      <span class="kicker">05 — Rekaman</span>
+      <span class="kicker">06 — Rekaman</span>
       <h2>Hasil eksperimen yang tersimpan</h2>
       <p>
         Angka di bawah berasal dari <span class="mono">results/summary.csv</span> (rata-rata 3 run per konfigurasi,
